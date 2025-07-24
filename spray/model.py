@@ -1,7 +1,6 @@
 import jax
 import jax.numpy as jnp
 from jax import grad, hessian, random
-# import jax.scipy.special as jsp
 jax.config.update("jax_enable_x64", True)
 
 from astropy import units as auni
