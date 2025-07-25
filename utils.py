@@ -72,7 +72,7 @@ def get_rj_vj_R(hessians, orbit_sat, mass_sat):
     return rj, vj, R
 
 @functools.partial(jax.jit, static_argnums=(-2, -1, ))
-def create_ic_particle_spray(orbit_sat, rj, vj, R, tail=0, seed=111, N_PARTICLES=10000, N_STEPS=100):
+def create_ic_particle_spray(orbit_sat, rj, vj, R, tail=0, seed=111, N_PARTICLES=10000, N_STEPS=500):
     key=jax.random.PRNGKey(seed)
     N = rj.shape[0]
 
@@ -117,3 +117,14 @@ def jax_unwrap(theta):
     dtheta_unwrapped = jnp.where(dtheta < -jnp.pi, dtheta + 2 * jnp.pi,
                          jnp.where(dtheta > jnp.pi, dtheta - 2 * jnp.pi, dtheta))
     return jnp.concatenate([theta[:1], theta[:1] + jnp.cumsum(dtheta_unwrapped)])
+
+@jax.jit
+def unwrap_step(theta_t, theta_unwrapped_prev):
+    # bring the previous unwrapped back into [0, 2π)
+    theta_prev_raw = jnp.mod(theta_unwrapped_prev, 2 * jnp.pi)
+    # raw increment
+    dtheta = theta_t - theta_prev_raw
+    # wrap into (–π, π]
+    dtheta = (dtheta + jnp.pi) % (2 * jnp.pi) - jnp.pi
+    # accumulate
+    return theta_unwrapped_prev + dtheta

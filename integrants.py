@@ -4,13 +4,17 @@ from constants import G, KPC_TO_KM, GYR_TO_S, EPSILON
 import functools 
 
 from potentials import NFWAcceleration, PlummerAcceleration
+from utils import unwrap_step
 
 ### Satellite Functions ###
-@functools.partial(jax.jit, static_argnums=(-1,))
-def leapfrog_satellite_step(state, dt, logM, Rs, q, dirx, diry, dirz, acc_func=NFWAcceleration):
+@jax.jit
+def leapfrog_satellite_step(state, dt, logM, Rs, q, dirx, diry, dirz):
+    """
+    Leapfrog integration step for satellite motion for NFW potential.
+    """
     x, y, z, vx, vy, vz = state
 
-    ax, ay, az = acc_func(x, y, z, logM, Rs, q, dirx, diry, dirz)
+    ax, ay, az = NFWAcceleration(x, y, z, logM, Rs, q, dirx, diry, dirz)
 
     vx_half = vx + 0.5 * dt * ax * KPC_TO_KM**-1
     vy_half = vy + 0.5 * dt * ay * KPC_TO_KM**-1
@@ -20,7 +24,7 @@ def leapfrog_satellite_step(state, dt, logM, Rs, q, dirx, diry, dirz, acc_func=N
     y_new = y + dt * vy_half * GYR_TO_S * KPC_TO_KM**-1
     z_new = z + dt * vz_half * GYR_TO_S * KPC_TO_KM**-1
 
-    ax_new, ay_new, az_new = acc_func(x_new, y_new, z_new, logM, Rs, q, dirx, diry, dirz)
+    ax_new, ay_new, az_new = NFWAcceleration(x_new, y_new, z_new, logM, Rs, q, dirx, diry, dirz)
 
     vx_new = vx_half + 0.5 * dt * ax_new * KPC_TO_KM**-1
     vy_new = vy_half + 0.5 * dt * ay_new * KPC_TO_KM**-1
@@ -28,8 +32,11 @@ def leapfrog_satellite_step(state, dt, logM, Rs, q, dirx, diry, dirz, acc_func=N
 
     return (x_new, y_new, z_new, vx_new, vy_new, vz_new)
 
-@functools.partial(jax.jit, static_argnums=(-2, -1, ))
-def integrate_satellite(x0, y0, z0, vx0, vy0, vz0, logM, Rs, q, dirx, diry, dirz, time, integrate_func=leapfrog_satellite_step, N_STEPS=100):
+@functools.partial(jax.jit, static_argnums=(-1,))
+def integrate_satellite(x0, y0, z0, vx0, vy0, vz0, logM, Rs, q, dirx, diry, dirz, time, N_STEPS=500):
+    """
+    Integrates the motion of a satellite using the leapfrog method for NFW potential.
+    """
     state = (x0, y0, z0, vx0, vy0, vz0)
     dt    = time/N_STEPS
 
@@ -39,30 +46,27 @@ def integrate_satellite(x0, y0, z0, vx0, vy0, vz0, logM, Rs, q, dirx, diry, dirz
 
     # Step function for JAX scan
     def step_fn(state, _):
-        new_state = integrate_func(state, dt, logM, Rs, q, dirx, diry, dirz)
+        new_state = leapfrog_satellite_step(state, dt, logM, Rs, q, dirx, diry, dirz)
         return new_state, jnp.stack(new_state)  # Ensuring shape consistency
 
     # Run JAX optimized loop (reverse integration order)
-    _, trajectory = jax.lax.scan(step_fn, state, None, length=N_STEPS - 1, unroll=True)
+    _, trajectory = jax.lax.scan(step_fn, state, None, length=N_STEPS) #, unroll=True)
 
     # Ensure trajectory shape is (MAX_LENGHT-1, 6)
-    trajectory = jnp.array(trajectory)  # Shape: (MAX_LENGHT-1, 6)
+    trajectory = jnp.vstack(trajectory)  # Shape: (MAX_LENGHT-1, 6)
 
-    # Correct concatenation
-    trajectory = jnp.vstack([trajectory[::-1], jnp.array(state)[None, :]])  # Shape: (MAX_LENGHT, 6)
-
-    # Compute time steps
-    time_steps = jnp.arange(N_STEPS) * dt
-
-    return trajectory, time_steps
+    return trajectory
 
 ### Stream Functions ###
-@functools.partial(jax.jit, static_argnums=(-2, -1))
-def leapfrog_combined_step(state, dt, logM, Rs, q, dirx, diry, dirz, logm, rs, acc_func1=NFWAcceleration, acc_func2=PlummerAcceleration):
+@jax.jit
+def leapfrog_combined_step(state, dt, logM, Rs, q, dirx, diry, dirz, logm, rs):
+    """
+    Leapfrog integration step for both satellite and stream motion for NFW and Plummer potentials.
+    """
     x, y, z, vx, vy, vz, xp, yp, zp, vxp, vyp, vzp = state
 
     # Update Satellite Position
-    axp, ayp, azp = acc_func1(xp, yp, zp, logM, Rs, q, dirx, diry, dirz)
+    axp, ayp, azp = NFWAcceleration(xp, yp, zp, logM, Rs, q, dirx, diry, dirz)
 
     vxp_half = vxp + 0.5 * dt * axp * KPC_TO_KM**-1
     vyp_half = vyp + 0.5 * dt * ayp * KPC_TO_KM**-1
@@ -72,15 +76,15 @@ def leapfrog_combined_step(state, dt, logM, Rs, q, dirx, diry, dirz, logm, rs, a
     yp_new = yp + dt * vyp_half * GYR_TO_S * KPC_TO_KM**-1
     zp_new = zp + dt * vzp_half * GYR_TO_S * KPC_TO_KM**-1
 
-    axp_new, ayp_new, azp_new = acc_func1(xp_new, yp_new, zp_new, logM, Rs, q, dirx, diry, dirz)
+    axp_new, ayp_new, azp_new = NFWAcceleration(xp_new, yp_new, zp_new, logM, Rs, q, dirx, diry, dirz)
 
     vxp_new = vxp_half + 0.5 * dt * axp_new * KPC_TO_KM**-1
     vyp_new = vyp_half + 0.5 * dt * ayp_new * KPC_TO_KM**-1
     vzp_new = vzp_half + 0.5 * dt * azp_new * KPC_TO_KM**-1
 
     # Update Stream Position
-    ax, ay, az = acc_func1(x, y, z, logM, Rs, q, dirx, diry, dirz) +  \
-                    acc_func2(x, y, z, logm, rs, x_origin=xp, y_origin=yp, z_origin=zp) # km2 / s / Gyr / kpc
+    ax, ay, az = NFWAcceleration(x, y, z, logM, Rs, q, dirx, diry, dirz) +  \
+                    PlummerAcceleration(x, y, z, logm, rs, x_origin=xp, y_origin=yp, z_origin=zp) # km2 / s / Gyr / kpc
 
     vx_half = vx + 0.5 * dt * ax * KPC_TO_KM**-1 # km / s
     vy_half = vy + 0.5 * dt * ay * KPC_TO_KM**-1
@@ -90,11 +94,52 @@ def leapfrog_combined_step(state, dt, logM, Rs, q, dirx, diry, dirz, logm, rs, a
     y_new = y + dt * vy_half * GYR_TO_S * KPC_TO_KM**-1
     z_new = z + dt * vz_half * GYR_TO_S * KPC_TO_KM**-1
 
-    ax_new, ay_new, az_new = acc_func1(x_new, y_new, z_new, logM, Rs, q, dirx, diry, dirz) +  \
-                                acc_func2(x_new, y_new, z_new, logm, rs, x_origin=xp_new, y_origin=yp_new, z_origin=zp_new) # km2 / s / Gyr / kpc
+    ax_new, ay_new, az_new = NFWAcceleration(x_new, y_new, z_new, logM, Rs, q, dirx, diry, dirz) +  \
+                                PlummerAcceleration(x_new, y_new, z_new, logm, rs, x_origin=xp_new, y_origin=yp_new, z_origin=zp_new) # km2 / s / Gyr / kpc
 
     vx_new = vx_half + 0.5 * dt * ax_new * KPC_TO_KM**-1 # km / s
     vy_new = vy_half + 0.5 * dt * ay_new * KPC_TO_KM**-1
     vz_new = vz_half + 0.5 * dt * az_new * KPC_TO_KM**-1
 
     return (x_new, y_new, z_new, vx_new, vy_new, vz_new, xp_new, yp_new, zp_new, vxp_new, vyp_new, vzp_new)
+
+@jax.jit
+def integrate_stream_spray(index, x0, y0, z0, vx0, vy0, vz0, xv_sat, logM, Rs, q, dirx, diry, dirz, logm, rs, time, N_STEPS=500):
+    # State is a flat tuple of six scalars.
+    xp, yp, zp, vxp, vyp, vzp = xv_sat[index]
+
+    thetap = jnp.arctan2(yp, xp)
+    thetap = jax.lax.cond(thetap < 0, lambda x: x + 2 * jnp.pi, lambda x: x, thetap)
+
+    theta0 = jnp.arctan2(y0, x0) + thetap
+    theta0 = jax.lax.cond(theta0 < 0, lambda x: x + 2 * jnp.pi, lambda x: x, theta0)
+
+    state = (theta0, x0, y0, z0, vx0, vy0, vz0, xp, yp, zp, vxp, vyp, vzp)
+    dt_sat = time / N_STEPS
+
+    time_here = time - index * dt_sat
+    dt_here = time_here / N_STEPS
+
+    def step_fn(state, _):
+        # Use only the first three elements of the satellite row.
+        theta0, x0, y0, z0, vx0, vy0, vz0, xp, yp, zp, vxp, vyp, vzp = state
+
+        initial_conditions = (x0, y0, z0, vx0, vy0, vz0, xp, yp, zp, vxp, vyp, vzp)
+        final_conditions = leapfrog_combined_step(initial_conditions, dt_here,
+                                            logM, Rs, q, dirx, diry, dirz, logm, rs)
+        
+        theta = jnp.arctan2(final_conditions[1], final_conditions[0])
+        theta = jax.lax.cond(theta < 0, lambda x: x + 2 * jnp.pi, lambda x: x, theta)
+
+        theta = unwrap_step(theta, theta0)
+
+        new_state = (theta, *final_conditions)
+
+        # The carry and output must have the same structure.
+        return new_state, _ # jnp.stack(new_state)
+
+    # Run integration over the satellite trajectory (using all but the last row).
+    trajectory, _ = jax.lax.scan(step_fn, state, None, length=N_STEPS) #, unroll=True)
+    # 'trajectory' is a tuple of six arrays, each of shape (N_STEPS,).
+
+    return jnp.array(trajectory)
