@@ -128,3 +128,25 @@ def unwrap_step(theta_t, theta_unwrapped_prev):
     dtheta = (dtheta + jnp.pi) % (2 * jnp.pi) - jnp.pi
     # accumulate
     return theta_unwrapped_prev + dtheta
+
+@jax.jit
+def get_track(theta_stream, x_stream, y_stream, n_bins=36):
+    # Step 1: Create bin edges and assign particles to bins
+    r_stream = jnp.sqrt(x_stream**2 + y_stream**2)
+    bin_edges   = jnp.linspace(-2 * jnp.pi, 2 * jnp.pi, n_bins + 1)
+    theta_bin   = (bin_edges[:-1] + bin_edges[1:]) / 2
+    bin_indices = jnp.digitize(theta_stream, bin_edges, right=True)
+
+    # Step 2: Per-bin median computation
+    def per_bin_median(bin_idx, bin_ids, r):
+        mask     = bin_ids == bin_idx
+        count    = jnp.sum(mask)
+        r_in_bin = jnp.where(mask, r, jnp.nan)
+
+        return count, jnp.nanmean(r_in_bin), jnp.nanstd(r_in_bin)
+
+    # Step 3: Vectorize
+    all_bins = jnp.arange(1, n_bins + 1)
+    count, r_bin, w_bin = jax.vmap(per_bin_median, in_axes=(0, None, None))(all_bins, bin_indices, r_stream)
+
+    return count, theta_bin, r_bin, w_bin

@@ -104,14 +104,13 @@ def leapfrog_combined_step(state, dt, logM, Rs, q, dirx, diry, dirz, logm, rs):
     return (x_new, y_new, z_new, vx_new, vy_new, vz_new, xp_new, yp_new, zp_new, vxp_new, vyp_new, vzp_new)
 
 @jax.jit
-def integrate_stream_spray(index, x0, y0, z0, vx0, vy0, vz0, xv_sat, logM, Rs, q, dirx, diry, dirz, logm, rs, time, N_STEPS=500):
+def integrate_stream_spray(index, x0, y0, z0, vx0, vy0, vz0, theta_sat, xv_sat, logM, Rs, q, dirx, diry, dirz, logm, rs, time, N_STEPS=500):
     # State is a flat tuple of six scalars.
     xp, yp, zp, vxp, vyp, vzp = xv_sat[index]
+    thetap = theta_sat[index]
+    thetaf = theta_sat[-1]
 
-    thetap = jnp.arctan2(yp, xp)
-    thetap = jax.lax.cond(thetap < 0, lambda x: x + 2 * jnp.pi, lambda x: x, thetap)
-
-    theta0 = jnp.arctan2(y0, x0) + thetap
+    theta0 = jnp.arctan2(y0, x0)
     theta0 = jax.lax.cond(theta0 < 0, lambda x: x + 2 * jnp.pi, lambda x: x, theta0)
 
     state = (theta0, x0, y0, z0, vx0, vy0, vz0, xp, yp, zp, vxp, vyp, vzp)
@@ -142,4 +141,11 @@ def integrate_stream_spray(index, x0, y0, z0, vx0, vy0, vz0, xv_sat, logM, Rs, q
     trajectory, _ = jax.lax.scan(step_fn, state, None, length=N_STEPS) #, unroll=True)
     # 'trajectory' is a tuple of six arrays, each of shape (N_STEPS,).
 
-    return jnp.array(trajectory)
+    theta_count = jnp.floor_divide(thetap, 2 * jnp.pi)
+    algin_reference = thetaf - jnp.floor_divide(thetaf, 2 * jnp.pi)*2*jnp.pi # Make sure the angle of reference is at theta=0
+    centered_at_0 = (1 - jnp.sign(algin_reference - jnp.pi))/2 * algin_reference + \
+                            (1 + jnp.sign(algin_reference - jnp.pi))/2 * (algin_reference - 2 * jnp.pi)
+
+    theta_stream = trajectory[0] - thetaf + theta_count * 2 * jnp.pi + centered_at_0
+
+    return theta_stream, jnp.array(trajectory)[1:7]
