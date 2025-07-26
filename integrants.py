@@ -149,3 +149,48 @@ def integrate_stream_spray(index, x0, y0, z0, vx0, vy0, vz0, theta_sat, xv_sat, 
     theta_stream = trajectory[0] - thetaf + theta_count * 2 * jnp.pi + centered_at_0
 
     return theta_stream, jnp.array(trajectory)[1:7]
+
+@jax.jit
+def integrate_stream_streak(index, x0, y0, z0, vx0, vy0, vz0, theta_sat, xv_sat, logM, Rs, q, dirx, diry, dirz, logm, rs, time, N_STEPS=500, buffer_size=10):
+    # State is a flat tuple of six scalars.
+    xp, yp, zp, vxp, vyp, vzp = xv_sat[index]
+    thetap = theta_sat[index]
+    thetaf = theta_sat[-1]
+
+    theta0 = jnp.arctan2(y0, x0)
+    theta0 = jax.lax.cond(theta0 < 0, lambda x: x + 2 * jnp.pi, lambda x: x, theta0)
+
+    state = (theta0, x0, y0, z0, vx0, vy0, vz0, xp, yp, zp, vxp, vyp, vzp)
+    dt_sat = time / N_STEPS
+
+    time_here = time - index * dt_sat
+    dt_here = time_here / N_STEPS
+
+    def step_fn(carry, _):
+        buffer, state = carry
+        theta0, x0, y0, z0, vx0, vy0, vz0, xp, yp, zp, vxp, vyp, vzp = state
+
+        initial_conditions = (x0, y0, z0, vx0, vy0, vz0, xp, yp, zp, vxp, vyp, vzp)
+        final_conditions = leapfrog_combined_step(initial_conditions, dt_here,
+                                                logM, Rs, q, dirx, diry, dirz, logm, rs)
+
+        theta = jnp.arctan2(final_conditions[1], final_conditions[0])
+        theta = jax.lax.cond(theta < 0, lambda x: x + 2 * jnp.pi, lambda x: x, theta)
+        theta = unwrap_step(theta, theta0)
+        new_state = (theta, *final_conditions)
+
+        # Update buffer: roll left and append new_state
+        new_buffer = jnp.roll(buffer, -1, axis=0).at[-1].set(jnp.array(new_state))
+        return (new_buffer, new_state), new_buffer
+
+    # Initialize buffer with the initial state repeated
+    buffer_init = jnp.tile(jnp.array(state)[None, :], (buffer_size, 1))
+    (final_buffer, _), buffers = jax.lax.scan(step_fn, (buffer_init, state), None, length=N_STEPS + (buffer_size//2))
+
+    theta_count = jnp.floor_divide(thetap, 2 * jnp.pi)
+    algin_reference = thetaf - jnp.floor_divide(thetaf, 2 * jnp.pi)*2*jnp.pi # Make sure the angle of reference is at theta=0
+    centered_at_0 = (1 - jnp.sign(algin_reference - jnp.pi))/2 * algin_reference + \
+                            (1 + jnp.sign(algin_reference - jnp.pi))/2 * (algin_reference - 2 * jnp.pi)
+    theta_stream = final_buffer[:, 0] - thetaf + theta_count * 2 * jnp.pi + centered_at_0
+
+    return theta_stream, final_buffer[:, 1:7] # Flatten the first dimension to get a 2D array

@@ -150,3 +150,14 @@ def get_track(theta_stream, x_stream, y_stream, n_bins=36):
     count, r_bin, w_bin = jax.vmap(per_bin_median, in_axes=(0, None, None))(all_bins, bin_indices, r_stream)
 
     return count, theta_bin, r_bin, w_bin
+
+@jax.jit
+def get_q(dirx, diry, dirz):
+    """
+    Computes the axis ratio q from the direction vector components. Uniform [0.5, 1.5].
+    """
+    r  = jnp.sqrt(dirx**2 + diry**2 + dirz**2) 
+    q  = jnp.exp(-r**2/2) * (jnp.sqrt(jnp.pi) * jnp.exp(r**2/2) * jax.scipy.special.erf(r/jnp.sqrt(2)) - jnp.sqrt(2)*r)/jnp.sqrt(jnp.pi)
+    q += 0.5
+
+    return q
