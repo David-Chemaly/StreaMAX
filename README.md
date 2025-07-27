@@ -11,6 +11,10 @@ StreaMAX offers the following 4 modeling frameworks all JAX-compiled:
     - Binned: to come
     - 2nd order: to come
 
+## Quick Start
+
+Look at the quick_start.ipynb to see how to define the parameters and generate a stream from the aformentioned methods. 
+
 ## Installation
 
 ```bash
