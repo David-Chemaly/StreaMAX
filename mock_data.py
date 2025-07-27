@@ -22,12 +22,20 @@ def get_data(seed, sigma=2):
         q = get_q(params[2], params[3], params[4])
         theta_stream, xv_stream = generate_stream_spray(params[:2] + (q, ) + params[2:],  seed=111, n_steps=500, n_particles=10000)
         count, theta_bin, r_bin, w_bin = get_track(theta_stream, xv_stream[:, 0], xv_stream[:, 1])
+        r_stream = jnp.sqrt(xv_stream[:, 0]**2 + xv_stream[:, 1]**2)
 
-        crit1 = jnp.nanmin(r_bin) > 10  # Must be further than 10kpc minimum
-        crit2 = jnp.sum(jnp.where(count > 100, 1, 0)) > 9 # Must have at least 10 bins with more than 100 particles
+        # crit1 = jnp.nanmin(r_bin) > 10  # Must be further than 10kpc minimum
+        # crit2 = jnp.nanmax(r_bin) < 500  # Must be less than 500kpc
+        crit1 = jnp.all(jnp.diff(jnp.where(count > 100)[0]) == 1) # Must be continuous and
+        crit2 = jnp.sum(jnp.where(count > 100, 1, 0)) > 9   # Must have at least 10 bins with more than 100 particles
         crit3 = jnp.nansum(r_bin[:-1]*jnp.tanh(jnp.diff(theta_bin))) > 100 # Must have length of at least 100kpc
+        crit4 = jnp.min(r_stream) > 2  # Must be further than 2kpc minimum
+        crit5 = jnp.max(r_stream) < 500  # Must be less than 500kpc
+        # crit6 = jnp.min(theta_stream) > -2*jnp.pi  # Must be within -2pi and 2pi
+        # crit7 = jnp.max(theta_stream) < 2*jnp.pi  # Must be within -2pi and 2pi
+        # crit7 = jnp.where(count > 100, 1, 0) * jnp.diff(theta_bin)
 
-        if crit1 and crit2 and crit3:
+        if crit1 and crit2 and crit3 and crit4 and crit5: # and crit6 and crit7:
             is_data = True
 
     dict_data = {
