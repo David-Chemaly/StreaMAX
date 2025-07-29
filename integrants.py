@@ -103,7 +103,7 @@ def leapfrog_combined_step(state, dt, logM, Rs, q, dirx, diry, dirz, logm, rs):
 
     return (x_new, y_new, z_new, vx_new, vy_new, vz_new, xp_new, yp_new, zp_new, vxp_new, vyp_new, vzp_new)
 
-@jax.jit
+@functools.partial(jax.jit, static_argnums=(-1,))
 def integrate_stream_spray(index, x0, y0, z0, vx0, vy0, vz0, theta_sat, xv_sat, logM, Rs, q, dirx, diry, dirz, logm, rs, time, N_STEPS=500):
     # State is a flat tuple of six scalars.
     xp, yp, zp, vxp, vyp, vzp = xv_sat[index]
