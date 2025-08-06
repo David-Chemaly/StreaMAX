@@ -161,3 +161,20 @@ def get_q(dirx, diry, dirz):
     q += 0.5
 
     return q
+
+@jax.jit
+def unwrap_stream_from_unwrapped_orbit(theta_sat, theta_stream, n_particles=10000, n_steps=500):
+    theta_count = jnp.floor_divide(theta_sat, 2 * jnp.pi)
+
+    final_theta_stream = (
+        theta_stream #jnp.sum(theta_stream * diagonal_matrix, axis=1)
+        - theta_sat[-1]
+    + jnp.repeat(theta_count,  n_particles// n_steps) * 2 * jnp.pi
+    )
+
+    algin_reference = theta_sat[-1]- theta_count[-1]*(2*jnp.pi) # Make sure the angle of reference is at theta=0
+
+    final_theta_stream += (1 - jnp.sign(algin_reference - jnp.pi))/2 * algin_reference + \
+                            (1 + jnp.sign(algin_reference - jnp.pi))/2 * (algin_reference - 2 * jnp.pi)
+    
+    return final_theta_stream
