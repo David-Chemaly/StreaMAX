@@ -4,7 +4,7 @@ from constants import G, KPC_TO_KM, GYR_TO_S, EPSILON
 import functools 
 
 from potentials import NFWAcceleration, PlummerAcceleration
-from utils import unwrap_step
+from utils import unwrap_step, update_streams
 
 ### Satellite Functions ###
 @jax.jit
@@ -194,3 +194,108 @@ def integrate_stream_streak(index, x0, y0, z0, vx0, vy0, vz0, theta_sat, xv_sat,
     theta_stream = final_buffer[:, 0] - thetaf + theta_count * 2 * jnp.pi + centered_at_0
 
     return theta_stream, final_buffer[:, 1:7] # Flatten the first dimension to get a 2D array
+
+@jax.jit
+def leapfrog_individual_step(count, theta0, state, dt, logM, Rs, q, dirx, diry, dirz, logm, rs, xp, yp, zp, vxp, vyp, vzp, r_threshold):
+    """
+    Leapfrog integration step for both satellite and stream motion for NFW and Plummer potentials.
+    """
+    x, y, z, vx, vy, vz = state
+
+    # Update Satellite Position
+    axp, ayp, azp = NFWAcceleration(xp, yp, zp, logM, Rs, q, dirx, diry, dirz)
+
+    vxp_half = vxp + 0.5 * dt * axp * KPC_TO_KM**-1
+    vyp_half = vyp + 0.5 * dt * ayp * KPC_TO_KM**-1
+    vzp_half = vzp + 0.5 * dt * azp * KPC_TO_KM**-1
+
+    xp_new = xp + dt * vxp_half * GYR_TO_S * KPC_TO_KM**-1
+    yp_new = yp + dt * vyp_half * GYR_TO_S * KPC_TO_KM**-1
+    zp_new = zp + dt * vzp_half * GYR_TO_S * KPC_TO_KM**-1
+
+    axp_new, ayp_new, azp_new = NFWAcceleration(xp_new, yp_new, zp_new, logM, Rs, q, dirx, diry, dirz)
+
+    vxp_new = vxp_half + 0.5 * dt * axp_new * KPC_TO_KM**-1
+    vyp_new = vyp_half + 0.5 * dt * ayp_new * KPC_TO_KM**-1
+    vzp_new = vzp_half + 0.5 * dt * azp_new * KPC_TO_KM**-1
+
+    # Update Stream Position
+    ax, ay, az = NFWAcceleration(x, y, z, logM, Rs, q, dirx, diry, dirz) +  \
+                    PlummerAcceleration(x, y, z, logm, rs, x_origin=xp, y_origin=yp, z_origin=zp) # km2 / s / Gyr / kpc
+
+    vx_half = vx + 0.5 * dt * ax * KPC_TO_KM**-1 # km / s
+    vy_half = vy + 0.5 * dt * ay * KPC_TO_KM**-1
+    vz_half = vz + 0.5 * dt * az * KPC_TO_KM**-1
+
+    x_new = x + dt * vx_half * GYR_TO_S * KPC_TO_KM**-1 # kpc
+    y_new = y + dt * vy_half * GYR_TO_S * KPC_TO_KM**-1
+    z_new = z + dt * vz_half * GYR_TO_S * KPC_TO_KM**-1
+
+    ax_new, ay_new, az_new = NFWAcceleration(x_new, y_new, z_new, logM, Rs, q, dirx, diry, dirz) +  \
+                                PlummerAcceleration(x_new, y_new, z_new, logm, rs, x_origin=xp_new, y_origin=yp_new, z_origin=zp_new) # km2 / s / Gyr / kpc
+
+    vx_new = vx_half + 0.5 * dt * ax_new * KPC_TO_KM**-1 # km / s
+    vy_new = vy_half + 0.5 * dt * ay_new * KPC_TO_KM**-1
+    vz_new = vz_half + 0.5 * dt * az_new * KPC_TO_KM**-1
+
+    theta = jnp.arctan2(y_new, x_new)
+    theta = jax.lax.cond(theta < 0, lambda x: x + 2 * jnp.pi, lambda x: x, theta)
+    theta = unwrap_step(theta, theta0)
+
+    r_dist_here = jnp.sqrt( (x_new - xp_new)**2 + 
+                            (y_new - yp_new)**2 + 
+                            (z_new - zp_new)**2 )
+
+    mask  = jax.lax.cond( (r_dist_here > r_threshold) & (count == 0), lambda: 1., lambda: jnp.nan)
+
+    vt_here = jnp.sqrt( (vx_new - vxp_new)**2 + 
+                        (vy_new - vyp_new)**2 + 
+                        (vz_new - vzp_new)**2 )
+
+    return theta, jnp.array([x_new, y_new, z_new, vx_new, vy_new, vz_new]), mask, vt_here
+
+@jax.jit
+def masked_leapfrog(count_j, theta0_j, xv_j, idx_j, current_i, fwd_i_args, r_threshold, dt, logM, Rs, q, dirx, diry, dirz, logm, rs):
+    def do_step(_):
+        return leapfrog_individual_step(count_j, theta0_j, xv_j, dt, logM, Rs, q, dirx, diry, dirz, logm, rs, *fwd_i_args, r_threshold)
+
+    def skip_step(_):
+        return theta0_j, xv_j, jnp.nan, jnp.nan
+
+    return jax.lax.cond( (idx_j <= current_i) & (~jnp.isnan(count_j)), do_step, skip_step, operand=None)
+
+@functools.partial(jax.jit, static_argnums=(1, 2))
+def wrapper_scan(carry_init, n_steps, num_bin, forward_trajectory, index, r_threshold, dt, logM, Rs, q, dirx, diry, dirz, logm, rs):
+
+    @jax.jit
+    def scan_step(carry, i):
+        count_stream, theta_stream, xv_stream = carry
+
+        # You need to compute forward_trajectory[i] outside `scan` and pass it in
+        fwd_i = forward_trajectory[i]
+
+        # Vectorized leapfrog step
+        theta_stream, xv_stream, mask, vt = jax.vmap(
+            masked_leapfrog, in_axes=(0, 0, 0, 0, None, None, None, None, None, None, None, None, None, None, None, None)
+        )(count_stream, theta_stream, xv_stream, index, i, fwd_i, r_threshold, dt, logM, Rs, q, dirx, diry, dirz, logm, rs)
+
+        wrong_bool_mask = jnp.isnan(mask)
+        bool_mask = ~wrong_bool_mask
+        arg_remove = wrong_bool_mask * 1.0 + bool_mask * jnp.nan
+
+        nb_out = jnp.nansum(mask)
+
+        count_stream, theta_stream, xv_stream = update_streams(
+            count_stream, theta_stream, xv_stream,
+            vt, mask, arg_remove, nb_out, bool_mask, num_bin
+        )
+
+        return (count_stream, theta_stream, xv_stream), None
+    
+    return jax.lax.scan(scan_step, carry_init, jnp.arange(n_steps))
+
+# @functools.partial(jax.jit, static_argnums=(1, 2))
+# def wrapper_scan(carry_init, n_steps, num_bin):
+#     def scan_body(carry, i):
+#         return scan_step(carry, i, num_bin)
+#     return jax.lax.scan(scan_body, carry_init, jnp.arange(n_steps))
