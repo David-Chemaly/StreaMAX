@@ -178,3 +178,8 @@ def unwrap_stream_from_unwrapped_orbit(theta_sat, theta_stream, n_particles=1000
                             (1 + jnp.sign(algin_reference - jnp.pi))/2 * (algin_reference - 2 * jnp.pi)
     
     return final_theta_stream
+
+@jax.jit
+def find_percentile_arg(nb, vt, mask, gap):
+    arg_keep = jnp.nanargmin(jnp.abs(vt*mask - jnp.nanpercentile(vt*mask, 100 * gap * (nb + 1))))
+    return arg_keep
