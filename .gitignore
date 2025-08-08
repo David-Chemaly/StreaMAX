@@ -1,2 +1,4 @@
 MockStreams/
+Plots/
 example.ipynb
+.gitignore
