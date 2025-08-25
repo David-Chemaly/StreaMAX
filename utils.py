@@ -37,15 +37,14 @@ def get_mat(x, y, z):
 
 @jax.jit
 def get_rj_vj_R(hessians, orbit_sat, mass_sat):
-    N = orbit_sat.shape[0]
     x, y, z, vx, vy, vz = orbit_sat.T
 
     # Compute angular momentum L
     Lx = y * vz - z * vy
     Ly = z * vx - x * vz
     Lz = x * vy - y * vx
-    r = jnp.sqrt(x**2 + y**2 + z**2 + 1e-8)  # Regularization to prevent NaN
-    L = jnp.sqrt(Lx**2 + Ly**2 + Lz**2 + 1e-8)
+    r = jnp.sqrt(x**2 + y**2 + z**2)  # Regularization to prevent NaN
+    L = jnp.sqrt(Lx**2 + Ly**2 + Lz**2)
 
     # Rotation matrix (transform from host to satellite frame)
     R = jnp.stack([
@@ -59,15 +58,15 @@ def get_rj_vj_R(hessians, orbit_sat, mass_sat):
     ], axis=-2)  # Shape: (N, 3, 3)
 
     # Compute second derivative of potential
-    d2Phi_dr2 = -(
+    d2Phi_dr2 = (
         x**2 * hessians[:, 0, 0] + y**2 * hessians[:, 1, 1] + z**2 * hessians[:, 2, 2] +
         2 * x * y * hessians[:, 0, 1] + 2 * y * z * hessians[:, 1, 2] + 2 * z * x * hessians[:, 0, 2]
-    ) / r**2 * KPC_TO_KM**-2 * GYR_TO_S**-1  # 1 / s²
+    ) / r**2 # 1 / Gyr²
 
     # Compute Jacobi radius and velocity offset
-    Omega = L / r**2 * KPC_TO_KM**-1  # 1 / s
-    rj = ((mass_sat * G / (Omega**2 - d2Phi_dr2)) * KPC_TO_KM**-2 + 1e-8) ** (1. / 3)  # kpc
-    vj = Omega * rj * KPC_TO_KM
+    Omega = L / r**2  # 1 / Gyr
+    rj = ((mass_sat * G / (Omega**2 - d2Phi_dr2))) ** (1. / 3)  # kpc
+    vj = Omega * rj
 
     return rj, vj, R
 

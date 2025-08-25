@@ -1,13 +1,13 @@
 import jax
 import jax.numpy as jnp
-jax.config.update("jax_enable_x64", True)
+# jax.config.update("jax_enable_x64", True)
 
 from flax import struct
 import functools # Import functools for partial methods
 
 from utils import get_mat
 
-from constants import G, EPSILON, GYR_TO_S, KPC_TO_KM
+from constants import G, EPSILON
 
 ### NFW Functions ###
 @jax.jit
@@ -40,7 +40,7 @@ def NFWPotential(x, y, z, logM, Rs, q, dirx, diry, dirz):
     r = jnp.sqrt(rx**2 + ry**2 + (rz / q)**2 + EPSILON)
     
     phi = -G * 10**logM / r * jnp.log(1 + r / Rs)
-    return phi  # km²/s²
+    return phi  # kpc²/Gyr²
 
 @jax.jit
 def NFWAcceleration(x, y, z, logM, Rs, q, dirx, diry, dirz):
@@ -64,7 +64,7 @@ def NFWAcceleration(x, y, z, logM, Rs, q, dirx, diry, dirz):
     potential_func = lambda pos: NFWPotential(pos[0], pos[1], pos[2], logM, Rs, q, dirx, diry, dirz)
     
     acc = jax.grad(potential_func)(jnp.array([x, y, z]))
-    return -acc * GYR_TO_S  # km² / s / Gyr / kpc
+    return -acc # kpc / Gyr2
 
 @jax.jit
 def NFWHessian(x, y, z, logM, Rs, q, dirx, diry, dirz):
@@ -88,7 +88,7 @@ def NFWHessian(x, y, z, logM, Rs, q, dirx, diry, dirz):
     potential_func = lambda pos: NFWPotential(pos[0], pos[1], pos[2], logM, Rs, q, dirx, diry, dirz)
     
     hess = jax.hessian(potential_func)(jnp.array([x, y, z]))
-    return hess  # km² / s² / kpc²
+    return hess # 1/Gyr2
 
 ### Plummer Functions ###
 @jax.jit
@@ -111,7 +111,7 @@ def PlummerPotential(x, y, z, logM, Rs, x_origin=0.0, y_origin=0.0, z_origin=0.0
     """
     r = jnp.sqrt((x - x_origin)**2 + (y - y_origin)**2 + (z - z_origin)**2 + EPSILON)
     phi = -G * 10**logM / jnp.sqrt(r**2 + Rs**2)
-    return phi # km²/s²
+    return phi # kpc²/Gyr²
 
 @jax.jit
 def PlummerAcceleration(x, y, z, logM, Rs, x_origin=0.0, y_origin=0.0, z_origin=0.0):
@@ -134,7 +134,7 @@ def PlummerAcceleration(x, y, z, logM, Rs, x_origin=0.0, y_origin=0.0, z_origin=
     potential_func = lambda pos: PlummerPotential(pos[0], pos[1], pos[2], logM, Rs, x_origin, y_origin, z_origin)
     
     acc = jax.grad(potential_func)(jnp.array([x, y, z]))
-    return -acc * GYR_TO_S # km² / s / Gyr / kpc
+    return -acc  # kpc / Gyr²
 
 @jax.jit
 def PlummerHessian(x, y, z, logM, Rs, x_origin= 0.0, y_origin=0.0, z_origin=0.0):
@@ -157,4 +157,4 @@ def PlummerHessian(x, y, z, logM, Rs, x_origin= 0.0, y_origin=0.0, z_origin=0.0)
     potential_func = lambda pos: PlummerPotential(pos[0], pos[1], pos[2], logM, Rs, x_origin, y_origin, z_origin)
     
     hess = jax.hessian(potential_func)(jnp.array([x, y, z]))
-    return hess # km² / s² / kpc²
+    return hess # 1/Gyr²

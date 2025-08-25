@@ -3,12 +3,11 @@ import jax.numpy as jnp
 import functools
 
 from utils import unwrap_step
-from constants import GYR_TO_S, KPC_TO_KM
 from potentials import NFWAcceleration, PlummerAcceleration, NFWHessian
 from utils import jax_unwrap, get_rj_vj_R
 
 N_STEPS = 100
-N_PARTICLES = 10000
+N_PARTICLES = 200000
 
 ### Satellite Functions ###
 @jax.jit
@@ -20,19 +19,19 @@ def leapfrog_satellite_step(state, dt, logM, Rs, q, dirx, diry, dirz):
 
     ax, ay, az = NFWAcceleration(x, y, z, logM, Rs, q, dirx, diry, dirz)
 
-    vx_half = vx + 0.5 * dt * ax * KPC_TO_KM**-1
-    vy_half = vy + 0.5 * dt * ay * KPC_TO_KM**-1
-    vz_half = vz + 0.5 * dt * az * KPC_TO_KM**-1
+    vx_half = vx + 0.5 * dt * ax
+    vy_half = vy + 0.5 * dt * ay
+    vz_half = vz + 0.5 * dt * az
 
-    x_new = x + dt * vx_half * GYR_TO_S * KPC_TO_KM**-1
-    y_new = y + dt * vy_half * GYR_TO_S * KPC_TO_KM**-1
-    z_new = z + dt * vz_half * GYR_TO_S * KPC_TO_KM**-1
+    x_new = x + dt * vx_half
+    y_new = y + dt * vy_half
+    z_new = z + dt * vz_half
 
     ax_new, ay_new, az_new = NFWAcceleration(x_new, y_new, z_new, logM, Rs, q, dirx, diry, dirz)
 
-    vx_new = vx_half + 0.5 * dt * ax_new * KPC_TO_KM**-1
-    vy_new = vy_half + 0.5 * dt * ay_new * KPC_TO_KM**-1
-    vz_new = vz_half + 0.5 * dt * az_new * KPC_TO_KM**-1
+    vx_new = vx_half + 0.5 * dt * ax_new
+    vy_new = vy_half + 0.5 * dt * ay_new
+    vz_new = vz_half + 0.5 * dt * az_new
 
     return (x_new, y_new, z_new, vx_new, vy_new, vz_new)
 
@@ -71,38 +70,38 @@ def leapfrog_combined_step(state, dt, logM, Rs, q, dirx, diry, dirz, logm, rs):
     # Update Satellite Position
     axp, ayp, azp = NFWAcceleration(xp, yp, zp, logM, Rs, q, dirx, diry, dirz)
 
-    vxp_half = vxp + 0.5 * dt * axp * KPC_TO_KM**-1
-    vyp_half = vyp + 0.5 * dt * ayp * KPC_TO_KM**-1
-    vzp_half = vzp + 0.5 * dt * azp * KPC_TO_KM**-1
+    vxp_half = vxp + 0.5 * dt * axp
+    vyp_half = vyp + 0.5 * dt * ayp
+    vzp_half = vzp + 0.5 * dt * azp
 
-    xp_new = xp + dt * vxp_half * GYR_TO_S * KPC_TO_KM**-1
-    yp_new = yp + dt * vyp_half * GYR_TO_S * KPC_TO_KM**-1
-    zp_new = zp + dt * vzp_half * GYR_TO_S * KPC_TO_KM**-1
+    xp_new = xp + dt * vxp_half
+    yp_new = yp + dt * vyp_half
+    zp_new = zp + dt * vzp_half
 
     axp_new, ayp_new, azp_new = NFWAcceleration(xp_new, yp_new, zp_new, logM, Rs, q, dirx, diry, dirz)
 
-    vxp_new = vxp_half + 0.5 * dt * axp_new * KPC_TO_KM**-1
-    vyp_new = vyp_half + 0.5 * dt * ayp_new * KPC_TO_KM**-1
-    vzp_new = vzp_half + 0.5 * dt * azp_new * KPC_TO_KM**-1
+    vxp_new = vxp_half + 0.5 * dt * axp_new
+    vyp_new = vyp_half + 0.5 * dt * ayp_new
+    vzp_new = vzp_half + 0.5 * dt * azp_new
 
     # Update Stream Position
     ax, ay, az = NFWAcceleration(x, y, z, logM, Rs, q, dirx, diry, dirz) +  \
-                    PlummerAcceleration(x, y, z, logm, rs, x_origin=xp, y_origin=yp, z_origin=zp) # km2 / s / Gyr / kpc
+                    PlummerAcceleration(x, y, z, logm, rs, x_origin=xp, y_origin=yp, z_origin=zp)
 
-    vx_half = vx + 0.5 * dt * ax * KPC_TO_KM**-1 # km / s
-    vy_half = vy + 0.5 * dt * ay * KPC_TO_KM**-1
-    vz_half = vz + 0.5 * dt * az * KPC_TO_KM**-1
+    vx_half = vx + 0.5 * dt * ax
+    vy_half = vy + 0.5 * dt * ay
+    vz_half = vz + 0.5 * dt * az
 
-    x_new = x + dt * vx_half * GYR_TO_S * KPC_TO_KM**-1 # kpc
-    y_new = y + dt * vy_half * GYR_TO_S * KPC_TO_KM**-1
-    z_new = z + dt * vz_half * GYR_TO_S * KPC_TO_KM**-1
+    x_new = x + dt * vx_half
+    y_new = y + dt * vy_half
+    z_new = z + dt * vz_half
 
     ax_new, ay_new, az_new = NFWAcceleration(x_new, y_new, z_new, logM, Rs, q, dirx, diry, dirz) +  \
-                                PlummerAcceleration(x_new, y_new, z_new, logm, rs, x_origin=xp_new, y_origin=yp_new, z_origin=zp_new) # km2 / s / Gyr / kpc
+                                PlummerAcceleration(x_new, y_new, z_new, logm, rs, x_origin=xp_new, y_origin=yp_new, z_origin=zp_new)
 
-    vx_new = vx_half + 0.5 * dt * ax_new * KPC_TO_KM**-1 # km / s
-    vy_new = vy_half + 0.5 * dt * ay_new * KPC_TO_KM**-1
-    vz_new = vz_half + 0.5 * dt * az_new * KPC_TO_KM**-1
+    vx_new = vx_half + 0.5 * dt * ax_new
+    vy_new = vy_half + 0.5 * dt * ay_new
+    vz_new = vz_half + 0.5 * dt * az_new
 
     return (x_new, y_new, z_new, vx_new, vy_new, vz_new, xp_new, yp_new, zp_new, vxp_new, vyp_new, vzp_new)
 

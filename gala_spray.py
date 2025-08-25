@@ -17,13 +17,14 @@ def model_stream(params, dt=-10):
     units = [auni.kpc, auni.km / auni.s, auni.Msun, auni.Gyr, auni.rad]
 
     w0 = gd.PhaseSpacePosition(
-        pos=np.array([pos_init_x, pos_init_y, pos_init_z]) * auni.kpc,
-        vel=np.array([vel_init_x, vel_init_y, vel_init_z]) * auni.km / auni.s,
+        pos=np.array([pos_init_x, pos_init_y, pos_init_z], dtype=np.float64) * auni.kpc,
+        vel=np.array([vel_init_x, vel_init_y, vel_init_z], dtype=np.float64) * auni.km / auni.s,
     )
 
     mat = get_mat(dirx, diry, dirz)
+    mat = np.array(mat, dtype=np.float64)
 
-    pot = gp.NFWPotential(10**logM, Rs, 1, 1, q, R=mat, units=units)
+    pot = gp.NFWPotential(10**logM, Rs, 1., 1., q, R=mat, units=units)
 
     H = gp.Hamiltonian(pot)
 
