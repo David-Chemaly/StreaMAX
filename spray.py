@@ -7,7 +7,7 @@ from potentials import NFWAcceleration, PlummerAcceleration, NFWHessian
 from utils import jax_unwrap, get_rj_vj_R
 
 N_STEPS = 100
-N_PARTICLES = 200000
+N_PARTICLES = 10000
 
 ### Satellite Functions ###
 @jax.jit
