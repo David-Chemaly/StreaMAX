@@ -88,7 +88,7 @@ def NFWHessian(x, y, z, logM, Rs, q, dirx, diry, dirz):
     potential_func = lambda pos: NFWPotential(pos[0], pos[1], pos[2], logM, Rs, q, dirx, diry, dirz)
     
     hess = jax.hessian(potential_func)(jnp.array([x, y, z]))
-    return hess  # km² / s / Gyr / kpc²
+    return hess  # km² / s² / kpc²
 
 ### Plummer Functions ###
 @jax.jit
@@ -157,4 +157,4 @@ def PlummerHessian(x, y, z, logM, Rs, x_origin= 0.0, y_origin=0.0, z_origin=0.0)
     potential_func = lambda pos: PlummerPotential(pos[0], pos[1], pos[2], logM, Rs, x_origin, y_origin, z_origin)
     
     hess = jax.hessian(potential_func)(jnp.array([x, y, z]))
-    return hess # km² / s / Gyr / kpc²
+    return hess # km² / s² / kpc²

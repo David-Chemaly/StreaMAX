@@ -3,67 +3,16 @@ import jax.numpy as jnp
 from constants import G, KPC_TO_KM, GYR_TO_S, EPSILON
 import functools 
 
-from potentials import NFWAcceleration, PlummerAcceleration
+from potentials import NFWAcceleration, NFWHessian, PlummerAcceleration, PlummerHessian
 from utils import unwrap_step, update_streams
 
-### Satellite Functions ###
-@jax.jit
-def leapfrog_satellite_step(state, dt, logM, Rs, q, dirx, diry, dirz):
-    """
-    Leapfrog integration step for satellite motion for NFW potential.
-    """
-    x, y, z, vx, vy, vz = state
-
-    ax, ay, az = NFWAcceleration(x, y, z, logM, Rs, q, dirx, diry, dirz)
-
-    vx_half = vx + 0.5 * dt * ax * KPC_TO_KM**-1
-    vy_half = vy + 0.5 * dt * ay * KPC_TO_KM**-1
-    vz_half = vz + 0.5 * dt * az * KPC_TO_KM**-1
-
-    x_new = x + dt * vx_half * GYR_TO_S * KPC_TO_KM**-1
-    y_new = y + dt * vy_half * GYR_TO_S * KPC_TO_KM**-1
-    z_new = z + dt * vz_half * GYR_TO_S * KPC_TO_KM**-1
-
-    ax_new, ay_new, az_new = NFWAcceleration(x_new, y_new, z_new, logM, Rs, q, dirx, diry, dirz)
-
-    vx_new = vx_half + 0.5 * dt * ax_new * KPC_TO_KM**-1
-    vy_new = vy_half + 0.5 * dt * ay_new * KPC_TO_KM**-1
-    vz_new = vz_half + 0.5 * dt * az_new * KPC_TO_KM**-1
-
-    return (x_new, y_new, z_new, vx_new, vy_new, vz_new)
-
-@functools.partial(jax.jit, static_argnums=(-1,))
-def integrate_satellite(x0, y0, z0, vx0, vy0, vz0, logM, Rs, q, dirx, diry, dirz, time, N_STEPS=500):
-    """
-    Integrates the motion of a satellite using the leapfrog method for NFW potential.
-    """
-    state = (x0, y0, z0, vx0, vy0, vz0)
-    dt    = time/N_STEPS
-
-    # Ensure scalar inputs are JAX arrays
-    logM, Rs, q = jnp.asarray(logM), jnp.asarray(Rs), jnp.asarray(q)
-    dirx, diry, dirz = jnp.asarray(dirx), jnp.asarray(diry), jnp.asarray(dirz)
-
-    # Step function for JAX scan
-    def step_fn(state, _):
-        new_state = leapfrog_satellite_step(state, dt, logM, Rs, q, dirx, diry, dirz)
-        return new_state, jnp.stack(new_state)  # Ensuring shape consistency
-
-    # Run JAX optimized loop (reverse integration order)
-    _, trajectory = jax.lax.scan(step_fn, state, None, length=N_STEPS) #, unroll=True)
-
-    # Ensure trajectory shape is (MAX_LENGHT-1, 6)
-    trajectory = jnp.vstack(trajectory)  # Shape: (MAX_LENGHT-1, 6)
-
-    return trajectory
-
 ### Stream Functions ###
-@jax.jit
-def leapfrog_combined_step(state, dt, logM, Rs, q, dirx, diry, dirz, logm, rs):
+
+def leapfrog_first_combined_step(state, dt, logM, Rs, q, dirx, diry, dirz, logm, rs):
     """
     Leapfrog integration step for both satellite and stream motion for NFW and Plummer potentials.
     """
-    x, y, z, vx, vy, vz, xp, yp, zp, vxp, vyp, vzp = state
+    (x, y, z, vx, vy, vz, xp, yp, zp, vxp, vyp, vzp), S, dS = state
 
     # Update Satellite Position
     axp, ayp, azp = NFWAcceleration(xp, yp, zp, logM, Rs, q, dirx, diry, dirz)
@@ -101,10 +50,26 @@ def leapfrog_combined_step(state, dt, logM, Rs, q, dirx, diry, dirz, logm, rs):
     vy_new = vy_half + 0.5 * dt * ay_new * KPC_TO_KM**-1
     vz_new = vz_half + 0.5 * dt * az_new * KPC_TO_KM**-1
 
-    return (x_new, y_new, z_new, vx_new, vy_new, vz_new, xp_new, yp_new, zp_new, vxp_new, vyp_new, vzp_new)
+    # Update first degree
+    Hess_old = NFWHessian(x, y, z, logM, Rs, q, dirx, diry, dirz) * KPC_TO_KM**-2 * GYR_TO_S**2  +  \
+                    PlummerHessian(x, y, z, logm, rs, x_origin=xp, y_origin=yp, z_origin=zp) * KPC_TO_KM**-2 * GYR_TO_S**2 # km2 / s / Gyr / kpc2 -> 1 / Gyr2
+    ddS = Hess_old @ S 
+    dS_half = dS + 0.5 * dt * ddS  # 1 / Gyr
+    S_new = S + dt * dS_half  # back to S units
+
+    Hess_new = NFWHessian(x_new, y_new, z_new, logM, Rs, q, dirx, diry, dirz) * KPC_TO_KM**-2 * GYR_TO_S**2  +  \
+                    PlummerHessian(x_new, y_new, z_new, logm, rs, x_origin=xp_new, y_origin=yp_new, z_origin=zp_new) * KPC_TO_KM**-2 * GYR_TO_S**2 # km2 / s / Gyr / kpc2 -> 1 / Gyr2
+    ddS_new = Hess_new @ S_new
+    dS_new = dS_half + 0.5 * dt * ddS_new  # 1 / Gyr
+
+    # TODO: update second degree
+
+    return (x_new, y_new, z_new, vx_new, vy_new, vz_new, xp_new, yp_new, zp_new, vxp_new, vyp_new, vzp_new), S_new, dS_new #, vS_new
+
+
 
 @functools.partial(jax.jit, static_argnums=(-1,))
-def integrate_stream_spray(index, x0, y0, z0, vx0, vy0, vz0, theta_sat, xv_sat, logM, Rs, q, dirx, diry, dirz, logm, rs, time, N_STEPS=500):
+def integrate_stream_first(index, x0, y0, z0, vx0, vy0, vz0, theta_sat, xv_sat, logM, Rs, q, dirx, diry, dirz, logm, rs, time, N_STEPS=500):
     # State is a flat tuple of six scalars.
     xp, yp, zp, vxp, vyp, vzp = xv_sat[index]
     thetap = theta_sat[index]
@@ -113,7 +78,10 @@ def integrate_stream_spray(index, x0, y0, z0, vx0, vy0, vz0, theta_sat, xv_sat, 
     theta0 = jnp.arctan2(y0, x0)
     theta0 = jax.lax.cond(theta0 < 0, lambda x: x + 2 * jnp.pi, lambda x: x, theta0)
 
-    state = (theta0, x0, y0, z0, vx0, vy0, vz0, xp, yp, zp, vxp, vyp, vzp)
+    S = jnp.block([jnp.eye(3), jnp.zeros([3,3])])  # Initial state for the stream, identity matrix for the Hessian
+    dS = jnp.zeros([3,6])
+
+    state = ((theta0, x0, y0, z0, vx0, vy0, vz0, xp, yp, zp, vxp, vyp, vzp), S, dS)
     dt_sat = time / N_STEPS
 
     time_here = time - index * dt_sat
@@ -121,18 +89,18 @@ def integrate_stream_spray(index, x0, y0, z0, vx0, vy0, vz0, theta_sat, xv_sat, 
 
     def step_fn(state, _):
         # Use only the first three elements of the satellite row.
-        theta0, x0, y0, z0, vx0, vy0, vz0, xp, yp, zp, vxp, vyp, vzp = state
+        (theta0, x0, y0, z0, vx0, vy0, vz0, xp, yp, zp, vxp, vyp, vzp), S, dS = state
 
-        initial_conditions = (x0, y0, z0, vx0, vy0, vz0, xp, yp, zp, vxp, vyp, vzp)
-        final_conditions = leapfrog_combined_step(initial_conditions, dt_here,
+        initial_conditions = ((x0, y0, z0, vx0, vy0, vz0, xp, yp, zp, vxp, vyp, vzp), S, dS)
+        final_conditions = leapfrog_first_combined_step(initial_conditions, dt_here,
                                             logM, Rs, q, dirx, diry, dirz, logm, rs)
-        
-        theta = jnp.arctan2(final_conditions[1], final_conditions[0])
+
+        theta = jnp.arctan2(final_conditions[0][1], final_conditions[0][0])
         theta = jax.lax.cond(theta < 0, lambda x: x + 2 * jnp.pi, lambda x: x, theta)
 
         theta = unwrap_step(theta, theta0)
 
-        new_state = (theta, *final_conditions)
+        new_state = ((theta, *final_conditions[0]), *final_conditions[1:])
 
         # The carry and output must have the same structure.
         return new_state, _ # jnp.stack(new_state)
@@ -146,9 +114,9 @@ def integrate_stream_spray(index, x0, y0, z0, vx0, vy0, vz0, theta_sat, xv_sat, 
     centered_at_0 = (1 - jnp.sign(algin_reference - jnp.pi))/2 * algin_reference + \
                             (1 + jnp.sign(algin_reference - jnp.pi))/2 * (algin_reference - 2 * jnp.pi)
 
-    theta_stream = trajectory[0] - thetaf + theta_count * 2 * jnp.pi + centered_at_0
+    theta_stream = trajectory[0][0] - thetaf + theta_count * 2 * jnp.pi + centered_at_0
 
-    return theta_stream, jnp.array(trajectory)[1:7]
+    return theta_stream, jnp.array(trajectory[0])[1:7], jnp.array(trajectory[1]), jnp.array(trajectory[2])  # Return the stream state and Hessian
 
 @jax.jit
 def integrate_stream_streak(index, x0, y0, z0, vx0, vy0, vz0, theta_sat, xv_sat, logM, Rs, q, dirx, diry, dirz, logm, rs, time, N_STEPS=500, buffer_size=10):
@@ -195,6 +163,7 @@ def integrate_stream_streak(index, x0, y0, z0, vx0, vy0, vz0, theta_sat, xv_sat,
 
     return theta_stream, final_buffer[:, 1:7] # Flatten the first dimension to get a 2D array
 
+### Binned ###
 @jax.jit
 def leapfrog_individual_step(count, theta0, state, dt, logM, Rs, q, dirx, diry, dirz, logm, rs, xp, yp, zp, vxp, vyp, vzp, r_threshold):
     """
