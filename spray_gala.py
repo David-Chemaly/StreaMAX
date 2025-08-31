@@ -33,7 +33,7 @@ def model_stream(params, dt=-10):
     prog_pot = gp.PlummerPotential(m=10**logm, b=rs, units=units)
     gen = ms.MockStreamGenerator(df, H, progenitor_potential=prog_pot)
 
-    stream, _ = gen.run(w0, 10**logm * auni.Msun, dt=dt* auni.Myr, n_steps=int(t_end * auni.Gyr/ abs(dt* auni.Myr)))
+    stream, _ = gen.run(w0, 10**logm * auni.Msun, dt=dt* auni.Myr, n_steps=500) #int(t_end * auni.Gyr/ abs(dt* auni.Myr)))
     xy_stream = stream.xyz.T[:, :2]
 
     return xy_stream.value

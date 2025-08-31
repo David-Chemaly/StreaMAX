@@ -49,7 +49,7 @@ def get_rj_vj_R(hessians, orbit_sat, mass_sat):
     # Rotation matrix (transform from host to satellite frame)
     R = jnp.stack([
         jnp.stack([x / r, y / r, z / r], axis=-1),
-        jnp.stack([
+        -jnp.stack([
             (y / r) * (Lz / L) - (z / r) * (Ly / L),
             (z / r) * (Lx / L) - (x / r) * (Lz / L),
             (x / r) * (Ly / L) - (y / r) * (Lx / L)
@@ -102,7 +102,7 @@ def get_track(theta_stream, x_stream, y_stream, n_bins=36):
         count    = jnp.sum(mask)
         r_in_bin = jnp.where(mask, r, jnp.nan)
 
-        return count, jnp.nanmean(r_in_bin), jnp.nanstd(r_in_bin)
+        return count, jnp.nanmedian(r_in_bin), (jnp.nanpercentile(r_in_bin, 84) - jnp.nanpercentile(r_in_bin, 16))/2
 
     # Step 3: Vectorize
     all_bins = jnp.arange(1, n_bins + 1)
