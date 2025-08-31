@@ -8,65 +8,6 @@ from utils import unwrap_step, update_streams
 
 ### Stream Functions ###
 
-def leapfrog_first_combined_step(state, dt, logM, Rs, q, dirx, diry, dirz, logm, rs):
-    """
-    Leapfrog integration step for both satellite and stream motion for NFW and Plummer potentials.
-    """
-    (x, y, z, vx, vy, vz, xp, yp, zp, vxp, vyp, vzp), S, dS = state
-
-    # Update Satellite Position
-    axp, ayp, azp = NFWAcceleration(xp, yp, zp, logM, Rs, q, dirx, diry, dirz)
-
-    vxp_half = vxp + 0.5 * dt * axp * KPC_TO_KM**-1
-    vyp_half = vyp + 0.5 * dt * ayp * KPC_TO_KM**-1
-    vzp_half = vzp + 0.5 * dt * azp * KPC_TO_KM**-1
-
-    xp_new = xp + dt * vxp_half * GYR_TO_S * KPC_TO_KM**-1
-    yp_new = yp + dt * vyp_half * GYR_TO_S * KPC_TO_KM**-1
-    zp_new = zp + dt * vzp_half * GYR_TO_S * KPC_TO_KM**-1
-
-    axp_new, ayp_new, azp_new = NFWAcceleration(xp_new, yp_new, zp_new, logM, Rs, q, dirx, diry, dirz)
-
-    vxp_new = vxp_half + 0.5 * dt * axp_new * KPC_TO_KM**-1
-    vyp_new = vyp_half + 0.5 * dt * ayp_new * KPC_TO_KM**-1
-    vzp_new = vzp_half + 0.5 * dt * azp_new * KPC_TO_KM**-1
-
-    # Update Stream Position
-    ax, ay, az = NFWAcceleration(x, y, z, logM, Rs, q, dirx, diry, dirz) +  \
-                    PlummerAcceleration(x, y, z, logm, rs, x_origin=xp, y_origin=yp, z_origin=zp) # km2 / s / Gyr / kpc
-
-    vx_half = vx + 0.5 * dt * ax * KPC_TO_KM**-1 # km / s
-    vy_half = vy + 0.5 * dt * ay * KPC_TO_KM**-1
-    vz_half = vz + 0.5 * dt * az * KPC_TO_KM**-1
-
-    x_new = x + dt * vx_half * GYR_TO_S * KPC_TO_KM**-1 # kpc
-    y_new = y + dt * vy_half * GYR_TO_S * KPC_TO_KM**-1
-    z_new = z + dt * vz_half * GYR_TO_S * KPC_TO_KM**-1
-
-    ax_new, ay_new, az_new = NFWAcceleration(x_new, y_new, z_new, logM, Rs, q, dirx, diry, dirz) +  \
-                                PlummerAcceleration(x_new, y_new, z_new, logm, rs, x_origin=xp_new, y_origin=yp_new, z_origin=zp_new) # km2 / s / Gyr / kpc
-
-    vx_new = vx_half + 0.5 * dt * ax_new * KPC_TO_KM**-1 # km / s
-    vy_new = vy_half + 0.5 * dt * ay_new * KPC_TO_KM**-1
-    vz_new = vz_half + 0.5 * dt * az_new * KPC_TO_KM**-1
-
-    # Update first degree
-    Hess_old = NFWHessian(x, y, z, logM, Rs, q, dirx, diry, dirz) * KPC_TO_KM**-2 * GYR_TO_S**2  +  \
-                    PlummerHessian(x, y, z, logm, rs, x_origin=xp, y_origin=yp, z_origin=zp) * KPC_TO_KM**-2 * GYR_TO_S**2 # km2 / s / Gyr / kpc2 -> 1 / Gyr2
-    ddS = Hess_old @ S 
-    dS_half = dS + 0.5 * dt * ddS  # 1 / Gyr
-    S_new = S + dt * dS_half  # back to S units
-
-    Hess_new = NFWHessian(x_new, y_new, z_new, logM, Rs, q, dirx, diry, dirz) * KPC_TO_KM**-2 * GYR_TO_S**2  +  \
-                    PlummerHessian(x_new, y_new, z_new, logm, rs, x_origin=xp_new, y_origin=yp_new, z_origin=zp_new) * KPC_TO_KM**-2 * GYR_TO_S**2 # km2 / s / Gyr / kpc2 -> 1 / Gyr2
-    ddS_new = Hess_new @ S_new
-    dS_new = dS_half + 0.5 * dt * ddS_new  # 1 / Gyr
-
-    # TODO: update second degree
-
-    return (x_new, y_new, z_new, vx_new, vy_new, vz_new, xp_new, yp_new, zp_new, vxp_new, vyp_new, vzp_new), S_new, dS_new #, vS_new
-
-
 
 @functools.partial(jax.jit, static_argnums=(-1,))
 def integrate_stream_first(index, x0, y0, z0, vx0, vy0, vz0, theta_sat, xv_sat, logM, Rs, q, dirx, diry, dirz, logm, rs, time, N_STEPS=500):

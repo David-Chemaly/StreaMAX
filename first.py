@@ -3,12 +3,12 @@ import jax.numpy as jnp
 import functools
 
 from utils import unwrap_step
-from potentials import NFWAcceleration, PlummerAcceleration, NFWHessian
+from potentials import NFWAcceleration, PlummerAcceleration, NFWHessian, PlummerHessian
 from utils import jax_unwrap, get_rj_vj_R
 from constants import KMS_TO_KPCGYR, KPCGYR_TO_KMS, TWOPI
 
 N_STEPS = 100
-N_PARTICLES = 10000
+N_PARTICLES = 1000
 
 ### Satellite Functions ###
 @jax.jit
@@ -54,19 +54,18 @@ def integrate_satellite(x0, y0, z0, vx0, vy0, vz0, logM, Rs, q, dirx, diry, dirz
         return new_state, jnp.stack(new_state)  # Ensuring shape consistency
 
     # Run JAX optimized loop (reverse integration order)
-    _, trajectory = jax.lax.scan(step_fn, state, None, length=N_STEPS, unroll=True)
+    _, trajectory = jax.lax.scan(step_fn, state, None, length=N_STEPS)#, unroll=True)
 
     # Ensure trajectory shape is (MAX_LENGHT-1, 6)
     trajectory = jnp.vstack(trajectory)  # Shape: (MAX_LENGHT-1, 6)
 
     return trajectory
 
-@jax.jit
-def leapfrog_combined_step(state, dt, logM, Rs, q, dirx, diry, dirz, logm, rs):
+def leapfrog_first_combined_step(state, dt, logM, Rs, q, dirx, diry, dirz, logm, rs):
     """
     Leapfrog integration step for both satellite and stream motion for NFW and Plummer potentials.
     """
-    x, y, z, vx, vy, vz, xp, yp, zp, vxp, vyp, vzp = state
+    (x, y, z, vx, vy, vz, xp, yp, zp, vxp, vyp, vzp), S, dS = state
 
     # Update Satellite Position
     axp, ayp, azp = NFWAcceleration(xp, yp, zp, logM, Rs, q, dirx, diry, dirz)
@@ -87,7 +86,7 @@ def leapfrog_combined_step(state, dt, logM, Rs, q, dirx, diry, dirz, logm, rs):
 
     # Update Stream Position
     ax, ay, az = NFWAcceleration(x, y, z, logM, Rs, q, dirx, diry, dirz) +  \
-                    PlummerAcceleration(x, y, z, logm, rs, x_origin=xp, y_origin=yp, z_origin=zp)
+                    PlummerAcceleration(x, y, z, logm, rs, x_origin=xp, y_origin=yp, z_origin=zp) # km2 / s / Gyr / kpc
 
     vx_half = vx + 0.5 * dt * ax
     vy_half = vy + 0.5 * dt * ay
@@ -98,16 +97,28 @@ def leapfrog_combined_step(state, dt, logM, Rs, q, dirx, diry, dirz, logm, rs):
     z_new = z + dt * vz_half
 
     ax_new, ay_new, az_new = NFWAcceleration(x_new, y_new, z_new, logM, Rs, q, dirx, diry, dirz) +  \
-                                PlummerAcceleration(x_new, y_new, z_new, logm, rs, x_origin=xp_new, y_origin=yp_new, z_origin=zp_new)
+                                PlummerAcceleration(x_new, y_new, z_new, logm, rs, x_origin=xp_new, y_origin=yp_new, z_origin=zp_new) # km2 / s / Gyr / kpc
 
     vx_new = vx_half + 0.5 * dt * ax_new
     vy_new = vy_half + 0.5 * dt * ay_new
     vz_new = vz_half + 0.5 * dt * az_new
 
-    return (x_new, y_new, z_new, vx_new, vy_new, vz_new, xp_new, yp_new, zp_new, vxp_new, vyp_new, vzp_new)
+    # Update first degree
+    Hess_old = NFWHessian(x, y, z, logM, Rs, q, dirx, diry, dirz) +  \
+                    PlummerHessian(x, y, z, logm, rs, x_origin=xp, y_origin=yp, z_origin=zp) # km2 / s / Gyr / kpc2 -> 1 / Gyr2
+    ddS = Hess_old @ S 
+    dS_half = dS + 0.5 * dt * ddS  # 1 / Gyr
+    S_new = S + dt * dS_half  # back to S units
+
+    Hess_new = NFWHessian(x_new, y_new, z_new, logM, Rs, q, dirx, diry, dirz)  +  \
+                    PlummerHessian(x_new, y_new, z_new, logm, rs, x_origin=xp_new, y_origin=yp_new, z_origin=zp_new) # km2 / s / Gyr / kpc2 -> 1 / Gyr2
+    ddS_new = Hess_new @ S_new
+    dS_new = dS_half + 0.5 * dt * ddS_new  # 1 / Gyr
+
+    return (x_new, y_new, z_new, vx_new, vy_new, vz_new, xp_new, yp_new, zp_new, vxp_new, vyp_new, vzp_new), S_new, dS_new #, vS_new
 
 @jax.jit
-def integrate_stream_spray(index, x0, y0, z0, vx0, vy0, vz0, theta_sat, xv_sat, logM, Rs, q, dirx, diry, dirz, logm, rs, time):
+def integrate_stream_first(index, x0, y0, z0, vx0, vy0, vz0, theta_sat, xv_sat, logM, Rs, q, dirx, diry, dirz, logm, rs, time):
     # State is a flat tuple of six scalars.
     xp, yp, zp, vxp, vyp, vzp = xv_sat[index]
     thetap = theta_sat[index]
@@ -116,7 +127,10 @@ def integrate_stream_spray(index, x0, y0, z0, vx0, vy0, vz0, theta_sat, xv_sat, 
     theta0 = jnp.arctan2(y0, x0)
     theta0 = jax.lax.cond(theta0 < 0, lambda x: x + TWOPI, lambda x: x, theta0)
 
-    state = (theta0, x0, y0, z0, vx0, vy0, vz0, xp, yp, zp, vxp, vyp, vzp)
+    S  = jnp.block([jnp.eye(3), jnp.zeros([3,3])])  # Initial state for the stream, identity matrix for the Hessian
+    dS = jnp.block([jnp.zeros([3,3]), jnp.eye(3)])
+
+    state = ((theta0, x0, y0, z0, vx0, vy0, vz0, xp, yp, zp, vxp, vyp, vzp), S, dS)
     dt_sat = time / N_STEPS
 
     time_here = time - index * dt_sat
@@ -124,24 +138,24 @@ def integrate_stream_spray(index, x0, y0, z0, vx0, vy0, vz0, theta_sat, xv_sat, 
 
     def step_fn(state, _):
         # Use only the first three elements of the satellite row.
-        theta0, x0, y0, z0, vx0, vy0, vz0, xp, yp, zp, vxp, vyp, vzp = state
+        (theta0, x0, y0, z0, vx0, vy0, vz0, xp, yp, zp, vxp, vyp, vzp), S, dS = state
 
-        initial_conditions = (x0, y0, z0, vx0, vy0, vz0, xp, yp, zp, vxp, vyp, vzp)
-        final_conditions   = leapfrog_combined_step(initial_conditions, dt_here,
+        initial_conditions = ((x0, y0, z0, vx0, vy0, vz0, xp, yp, zp, vxp, vyp, vzp), S, dS)
+        final_conditions = leapfrog_first_combined_step(initial_conditions, dt_here,
                                             logM, Rs, q, dirx, diry, dirz, logm, rs)
-        
-        theta = jnp.arctan2(final_conditions[1], final_conditions[0])
+
+        theta = jnp.arctan2(final_conditions[0][1], final_conditions[0][0])
         theta = jax.lax.cond(theta < 0, lambda x: x + TWOPI, lambda x: x, theta)
 
         theta = unwrap_step(theta, theta0)
 
-        new_state = (theta, *final_conditions)
+        new_state = ((theta, *final_conditions[0]), *final_conditions[1:])
 
         # The carry and output must have the same structure.
         return new_state, _ # jnp.stack(new_state)
 
     # Run integration over the satellite trajectory (using all but the last row).
-    trajectory, _ = jax.lax.scan(step_fn, state, None, length=N_STEPS, unroll=True)
+    trajectory, _ = jax.lax.scan(step_fn, state, None, length=N_STEPS) #, unroll=True)
     # 'trajectory' is a tuple of six arrays, each of shape (N_STEPS,).
 
     thetap_bound = thetap - TWOPI*jnp.floor_divide(thetap, TWOPI)
@@ -151,14 +165,14 @@ def integrate_stream_spray(index, x0, y0, z0, vx0, vy0, vz0, theta_sat, xv_sat, 
 
     algin_reference = thetaf - jnp.floor_divide(thetaf, TWOPI)*TWOPI # Make sure the angle of reference is at theta=0
     centered_at_0 = (1 - jnp.sign(algin_reference - jnp.pi))/2 * algin_reference + \
-                            (1 + jnp.sign(algin_reference - jnp.pi))/2 * (algin_reference - TWOPI)
+                            (1 + jnp.sign(algin_reference - jnp.pi))/2 * (algin_reference - 2 * jnp.pi)
 
-    theta_stream = trajectory[0] - thetaf + theta_count * TWOPI + centered_at_0
+    theta_stream = trajectory[0][0] - thetaf + theta_count * TWOPI + centered_at_0
 
-    return theta_stream, jnp.array(trajectory)[1:7]
+    return theta_stream, jnp.array(trajectory[0])[1:7], jnp.array(trajectory[1]), jnp.array(trajectory[2])  # Return the stream state and Hessian
 
 @jax.jit
-def create_ic_particle_spray(orbit_sat, rj, vj, R, tail=0, seed=111):
+def create_ic_particle_first(orbit_sat, rj, vj, R, tail=0, seed=111):
     key=jax.random.PRNGKey(seed)
     N = rj.shape[0]
 
@@ -198,7 +212,7 @@ def create_ic_particle_spray(orbit_sat, rj, vj, R, tail=0, seed=111):
     return ic_stream  # Shape: (N_particule, 6)
 
 @jax.jit
-def generate_stream_spray(params,  seed, tail=0):
+def generate_stream_first(params,  seed, tail=0):
     """
     Generates a stream spray based on the provided parameters and integrates the satellite motion.
     """
@@ -218,13 +232,13 @@ def generate_stream_spray(params,  seed, tail=0):
     hessians  = jax.vmap(NFWHessian, in_axes=(0, 0, 0, None, None, None, None, None, None)) \
                         (forward_trajectory[:, 0], forward_trajectory[:, 1], forward_trajectory[:, 2], logM, Rs, q, dirx, diry, dirz)
     rj, vj, R = get_rj_vj_R(hessians, forward_trajectory, 10 ** logm)
-    ic_particle_spray = create_ic_particle_spray(forward_trajectory, rj, vj, R, tail, seed)
+    ic_particle_first = create_ic_particle_first(forward_trajectory, rj, vj, R, tail, seed)
 
     index = jnp.repeat(jnp.arange(0, N_STEPS, 1), N_PARTICLES // N_STEPS)
-    theta_stream , xv_stream = jax.vmap(integrate_stream_spray, in_axes=(0, 0, 0, 0, 0, 0, 0, None, None, None, None, None, None, None, None, None, None, None)) \
-        (index, ic_particle_spray[:, 0], ic_particle_spray[:, 1], ic_particle_spray[:, 2], ic_particle_spray[:, 3], ic_particle_spray[:, 4], ic_particle_spray[:, 5],
+    theta_stream , xv_stream, S, dS = jax.vmap(integrate_stream_first, in_axes=(0, 0, 0, 0, 0, 0, 0, None, None, None, None, None, None, None, None, None, None, None)) \
+        (index, ic_particle_first[:, 0], ic_particle_first[:, 1], ic_particle_first[:, 2], ic_particle_first[:, 3], ic_particle_first[:, 4], ic_particle_first[:, 5],
         theta_sat_forward, forward_trajectory, logM, Rs, q, dirx, diry, dirz, logm, rs, time*alpha)
 
     xv_stream *= jnp.array([1, 1, 1, KPCGYR_TO_KMS, KPCGYR_TO_KMS, KPCGYR_TO_KMS])  # Convert velocities back to km/s
     forward_trajectory *= jnp.array([1, 1, 1, KPCGYR_TO_KMS, KPCGYR_TO_KMS, KPCGYR_TO_KMS])  # Convert velocities back to km/s
-    return theta_stream, xv_stream, theta_sat_forward, forward_trajectory
+    return theta_stream, xv_stream, theta_sat_forward, forward_trajectory, S, dS
