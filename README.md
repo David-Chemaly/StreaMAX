@@ -6,10 +6,9 @@ This package serves as a fast and efficient simulator of stellar streams. The go
 
 StreaMAX offers the following 4 modeling frameworks all JAX-compiled:
 
-    - Spray: from models import generate_stream_spray
-    - Streak: from models import generate_stream_streak
-    - Binned: to come
-    - 2nd order: to come
+    - Spray: from spray import generate_stream_spray
+    - Streak: from streak import generate_stream_streak
+    - 1st order: to come
 
 ## Quick Start
 

@@ -54,7 +54,7 @@ def integrate_satellite(x0, y0, z0, vx0, vy0, vz0, logM, Rs, q, dirx, diry, dirz
         return new_state, jnp.stack(new_state)  # Ensuring shape consistency
 
     # Run JAX optimized loop (reverse integration order)
-    _, trajectory = jax.lax.scan(step_fn, state, None, length=N_STEPS, unroll=True)
+    _, trajectory = jax.lax.scan(step_fn, state, None, length=N_STEPS)#, unroll=True)
 
     # Ensure trajectory shape is (MAX_LENGHT-1, 6)
     trajectory = jnp.vstack(trajectory)  # Shape: (MAX_LENGHT-1, 6)
@@ -141,7 +141,7 @@ def integrate_stream_streak(index, x0, y0, z0, vx0, vy0, vz0, theta_sat, xv_sat,
 
     # Initialize buffer with the initial state repeated
     buffer_init = jnp.tile(jnp.array(state)[None, :], (buffer_size, 1))
-    (final_buffer, _), buffers = jax.lax.scan(step_fn, (buffer_init, state), None, length=N_STEPS + (buffer_size//2), unroll=True)
+    (final_buffer, _), buffers = jax.lax.scan(step_fn, (buffer_init, state), None, length=N_STEPS + (buffer_size//2))#, unroll=True)
 
     thetap_bound = thetap - TWOPI*jnp.floor_divide(thetap, TWOPI)
     theta_diff = jnp.abs(thetap_bound - theta0)
