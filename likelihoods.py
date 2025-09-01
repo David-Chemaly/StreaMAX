@@ -5,7 +5,7 @@ from spray import generate_stream_spray
 
 BAD_VAL = -1e100
 
-def log_likelihood(params, dict_data, sigma=2, seed=111, min_count=100):
+def log_likelihood(params, dict_data, seed=111, min_count=100):
     q      = get_q(params[2], params[3], params[4])
     params = np.concatenate([params[:2], [q], params[2:8], [0.], params[8:]])
 

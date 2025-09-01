@@ -34,7 +34,7 @@ def sample_params(seed):
 
     return logM, Rs, dirx, diry, dirz, logm, rs, x0, y0, z0, vx0, vy0, vz0, time, alpha
 
-@jax.jit
+# @jax.jit
 def prior_transform(p):
     #ndim = 14
     logM, Rs, dirx, diry, dirz, \

@@ -73,10 +73,10 @@ if __name__ == "__main__":
             dict_data['r_sig'] = r_sig
             dict_data['x_bin'] = dict_data['r_bin'] * np.cos(dict_data['theta_bin'])
             dict_data['y_bin'] = dict_data['r_bin'] * np.sin(dict_data['theta_bin'])
-            print(log_likelihood(params_data, dict_data, sigma=sigma))
+            print(log_likelihood(params_data, dict_data))
 
             # Fit with dynesty
-            dict_results = dynesty_fit(dict_data, ndim=ndim, nlive=nlive, sigma=sigma)
+            dict_results = dynesty_fit(dict_data, ndim=ndim, nlive=nlive)
             with open(os.path.join(path, f'dict_results_nlive{nlive}_sigma{sigma}.pkl'), 'wb') as f:
                 pickle.dump(dict_results, f)
 
