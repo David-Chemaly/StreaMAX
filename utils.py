@@ -137,27 +137,3 @@ def unwrap_stream_from_unwrapped_orbit(theta_sat, theta_stream, n_particles=1000
                             (1 + jnp.sign(algin_reference - jnp.pi))/2 * (algin_reference - 2 * jnp.pi)
     
     return final_theta_stream
-
-@jax.jit
-def find_percentile_arg(nb, vt, mask, gap):
-    arg_keep = jnp.nanargmin(jnp.abs(vt*mask - jnp.nanpercentile(vt*mask, 100 * gap * (nb + 1))))
-    return arg_keep
-
-@functools.partial(jax.jit, static_argnums=(-1,))
-def percentile_block(count_stream, theta_stream, xv_stream, vt, mask, arg_remove, nb_out, num_bin):
-    gap = 1/(num_bin + 1) 
-    arg_keep = jax.vmap(find_percentile_arg, in_axes=(0, None, None, None))(jnp.arange(num_bin), vt, mask, gap)
-    arg_remove   = arg_remove.at[arg_keep].set(1.)
-    count_stream = count_stream.at[arg_keep].set(nb_out / num_bin)
-
-    return count_stream * arg_remove, theta_stream * arg_remove, xv_stream * arg_remove[:, None]
-
-@functools.partial(jax.jit, static_argnums=(-1,))
-def update_streams(count_stream, theta_stream, xv_stream, vt, mask, arg_remove, nb_out, bool_mask, num_bin):
-    def then_fn(_):
-        return count_stream + bool_mask, theta_stream, xv_stream
-
-    def else_fn(_):
-        return percentile_block(count_stream, theta_stream, xv_stream, vt, mask, arg_remove, nb_out, num_bin)
-
-    return jax.lax.cond(nb_out <= num_bin, then_fn, else_fn, operand=None)

@@ -61,6 +61,7 @@ def prior_transform(p):
 
     t1 = 1 + 3 * t0
     a1 = 0.9 + 0.2 * a0
+    
     return jnp.array([
         logM1, Rs1, dirx1, diry1, dirz1,
         logm1, rs1,
