@@ -52,14 +52,14 @@ if __name__ == "__main__":
     seeds = np.arange(100)
 
     ndim  = 14
-    nlive = 5000
-    sigma = 2
+    nlive = 1000
+    sigma = 1
 
     for seed in tqdm(seeds, leave=True):
         path = f'/data/dc824-2/MockStreams/seed{seed}'
 
-        if not os.path.exists(os.path.join(path,  f'running.txt')):
-            np.savetxt(os.path.join(path,  f'running.txt'), [1])
+        if not os.path.exists(os.path.join(path,  f'running_nlive{nlive}_sigma{sigma}.txt')):
+            np.savetxt(os.path.join(path,  f'running_nlive{nlive}_sigma{sigma}.txt'), [1])
 
             # Load data and add noise baised on sigma
             with open(os.path.join(path, "dict_stream.pkl"), "rb") as f:
@@ -92,7 +92,7 @@ if __name__ == "__main__":
                         title_kwargs={"fontsize": 16},
                         truths=params_data, 
                         truth_color='red')
-            figure.savefig(os.path.join(path, 'corner_plot.pdf'))
+            figure.savefig(os.path.join(path, f'corner_plot_nlive{nlive}_sigma{sigma}.pdf'))
             plt.close(figure)
 
             # Plot and Save flattening
@@ -104,7 +104,7 @@ if __name__ == "__main__":
             plt.ylabel('Density')
             plt.legend()
             plt.tight_layout()
-            plt.savefig(os.path.join(path, 'q_posterior.pdf'))
+            plt.savefig(os.path.join(path, f'q_posterior_nlive{nlive}_sigma{sigma}.pdf'))
             plt.close()
 
             # Plot and Save best fit
@@ -139,5 +139,5 @@ if __name__ == "__main__":
             plt.legend(loc='best')
 
             plt.tight_layout()
-            plt.savefig(os.path.join(path, 'best_fit.pdf'))
+            plt.savefig(os.path.join(path, f'best_fit_nlive{nlive}_sigma{sigma}.pdf'))
             plt.close()
