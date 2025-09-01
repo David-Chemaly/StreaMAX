@@ -1,6 +1,5 @@
 import jax
 import jax.numpy as jnp
-import functools
 
 from utils import unwrap_step
 from potentials import NFWAcceleration, PlummerAcceleration, NFWHessian, PlummerHessian
