@@ -60,7 +60,7 @@ if __name__ == "__main__":
         if not os.path.exists(os.path.join(path,  f'dict_results_nlive{nlive}_sigma{sigma}.pkl')):
 
             # Load data and add noise baised on sigma
-            with open(f"./MockStreams/seed{seed}/dict_stream.pkl", "rb") as f:
+            with open(os.path.join(path, "dict_stream.pkl"), "rb") as f:
                     dict_data = pickle.load(f)
             params_data = dict_data['params']
             params_data = np.concatenate([params_data[:2], params_data[3:9], params_data[10:]])
