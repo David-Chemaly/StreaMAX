@@ -57,7 +57,9 @@ if __name__ == "__main__":
 
     for seed in tqdm(seeds, leave=True):
         path = f'/data/dc824-2/MockStreams/seed{seed}'
-        if not os.path.exists(os.path.join(path,  f'dict_results_nlive{nlive}_sigma{sigma}.pkl')):
+
+        if not os.path.exists(os.path.join(path,  f'running.txt')):
+            np.savetxt(os.path.join(path,  f'running.txt'), [1])
 
             # Load data and add noise baised on sigma
             with open(os.path.join(path, "dict_stream.pkl"), "rb") as f:
