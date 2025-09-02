@@ -65,7 +65,7 @@ if __name__ == "__main__":
             with open(os.path.join(path, "dict_stream.pkl"), "rb") as f:
                     dict_data = pickle.load(f)
             params_data = dict_data['params']
-            params_data = np.concatenate([params_data[:2], params_data[3:9], params_data[10:]])
+            params_data = np.concatenate([params_data[:2], params_data[3:9], params_data[10:-1]])
 
             r_sig = dict_data['r_bin'] * sigma / 100
             rng   = np.random.default_rng(int(seed))

@@ -7,7 +7,7 @@ BAD_VAL = -1e100
 
 def log_likelihood(params, dict_data, seed=111, min_count=100):
     q      = get_q(params[2], params[3], params[4])
-    params = np.concatenate([params[:2], [q], params[2:8], [0.], params[8:]])
+    params = np.concatenate([params[:2], [q], params[2:8], [0.], params[8:], [1.]])
 
     theta_stream, xv_stream, _, _ = generate_stream_spray(params,  seed)
     _, _, r_bin, _ = get_track(theta_stream, xv_stream[:, 0], xv_stream[:, 1])
