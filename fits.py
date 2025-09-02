@@ -63,7 +63,7 @@ if __name__ == "__main__":
 
             # Load data and add noise baised on sigma
             with open(os.path.join(path, "dict_stream.pkl"), "rb") as f:
-                    dict_data = pickle.load(f)
+                dict_data = pickle.load(f)
             params_data = dict_data['params']
             params_data = np.concatenate([params_data[:2], params_data[3:9], params_data[10:-1]])
 
@@ -76,7 +76,7 @@ if __name__ == "__main__":
             dict_data['x_bin'] = dict_data['r_bin'] * np.cos(dict_data['theta_bin'])
             dict_data['y_bin'] = dict_data['r_bin'] * np.sin(dict_data['theta_bin'])
             print(log_likelihood(params_data, dict_data))
-
+            
             # Fit with dynesty
             dict_results = dynesty_fit(dict_data, ndim=ndim, nlive=nlive)
             with open(os.path.join(path, f'dict_results_nlive{nlive}_sigma{sigma}.pkl'), 'wb') as f:

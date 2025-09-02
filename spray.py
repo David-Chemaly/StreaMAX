@@ -141,7 +141,7 @@ def integrate_stream_spray(index, x0, y0, z0, vx0, vy0, vz0, theta_sat, xv_sat, 
         return new_state, _ # jnp.stack(new_state)
 
     # Run integration over the satellite trajectory (using all but the last row).
-    trajectory, _ = jax.lax.scan(step_fn, state, None, length=N_STEPS, unroll=True)
+    trajectory, _ = jax.lax.scan(step_fn, state, None, length=N_STEPS)#, unroll=True)
     # 'trajectory' is a tuple of six arrays, each of shape (N_STEPS,).
 
     thetap_bound = thetap - TWOPI*jnp.floor_divide(thetap, TWOPI)
