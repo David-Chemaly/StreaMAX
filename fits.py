@@ -114,9 +114,11 @@ if __name__ == "__main__":
             plt.ylabel(r'y [kpc]')
 
             best_params = dict_results['samps'][np.argmax(dict_results['logl'])]
+            q_best = get_q(best_params[2], best_params[3], best_params[4])
+            best_params = np.concatenate([best_params[:2], [q_best], best_params[2:8], [0.], best_params[8:]])
             np.savetxt(os.path.join(path, f'best_params_nlive{nlive}_sigma{sigma}.txt'), best_params)
 
-            theta_stream, xv_stream, theta_sat, xv_sat = generate_stream_spray(*best_params, 111)
+            theta_stream, xv_stream, theta_sat, xv_sat = generate_stream_spray(best_params, seed=111)
             _, theta_bin, r_bin, _ = get_track(theta_stream, xv_stream[:, 0], xv_stream[:, 1])
             x_bin = r_bin * np.cos(theta_bin)
             y_bin = r_bin * np.sin(theta_bin)
