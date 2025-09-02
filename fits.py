@@ -56,7 +56,7 @@ if __name__ == "__main__":
     sigma = 1
 
     for seed in tqdm(seeds, leave=True):
-        path = f'/data/dc824-2/MockStreams/seed{seed}'
+        path = f'./MockStreams/seed{seed}' #/data/dc824-2
 
         if not os.path.exists(os.path.join(path,  f'running_nlive{nlive}_sigma{sigma}.txt')):
             np.savetxt(os.path.join(path,  f'running_nlive{nlive}_sigma{sigma}.txt'), [1])
