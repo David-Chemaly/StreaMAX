@@ -7,7 +7,7 @@ import numpy as np
 import os
 import pickle
 
-def get_stream(seed, sigma=2, ndim=13, min_count=10):
+def get_stream(seed, sigma=2, ndim=13, min_count=100):
     is_data = False
     rng = np.random.default_rng(int(seed))
 
@@ -59,7 +59,7 @@ if __name__ == "__main__":
     seeds = jnp.arange(100)
 
     for seed in tqdm(seeds, leave=True):
-        path = f'/data/dc824-2/MockStreams/seed{seed}'
+        path = f'./MockStreams/seed{seed}'
         os.makedirs(path, exist_ok=True)
 
         dict_stream = get_stream(seed, sigma=2)
