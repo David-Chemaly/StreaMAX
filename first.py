@@ -241,6 +241,6 @@ def generate_stream_first(params,  seed, tail=0):
         (index, ic_particle_first[:, 0], ic_particle_first[:, 1], ic_particle_first[:, 2], ic_particle_first[:, 3], ic_particle_first[:, 4], ic_particle_first[:, 5],
         theta_sat_forward, forward_trajectory, logM, Rs, q, dirx, diry, dirz, logm, rs, time*alpha)
 
-    xv_stream *= jnp.array([1, 1, 1, KPCGYR_TO_KMS, KPCGYR_TO_KMS, KPCGYR_TO_KMS])  # Convert velocities back to km/s
-    forward_trajectory *= jnp.array([1, 1, 1, KPCGYR_TO_KMS, KPCGYR_TO_KMS, KPCGYR_TO_KMS])  # Convert velocities back to km/s
+    # xv_stream *= jnp.array([1, 1, 1, KPCGYR_TO_KMS, KPCGYR_TO_KMS, KPCGYR_TO_KMS])  # Convert velocities back to km/s
+    # forward_trajectory *= jnp.array([1, 1, 1, KPCGYR_TO_KMS, KPCGYR_TO_KMS, KPCGYR_TO_KMS])  # Convert velocities back to km/s
     return theta_stream, xv_stream, theta_sat_forward, forward_trajectory, S, dS, ic_particle_first, samples

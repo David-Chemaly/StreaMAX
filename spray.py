@@ -8,7 +8,7 @@ from utils import jax_unwrap, get_rj_vj_R
 from constants import KMS_TO_KPCGYR, KPCGYR_TO_KMS, TWOPI
 
 N_STEPS = 100
-N_PARTICLES = 10000
+N_PARTICLES = 1000
 
 ### Satellite Functions ###
 @jax.jit
@@ -54,7 +54,7 @@ def integrate_satellite(x0, y0, z0, vx0, vy0, vz0, logM, Rs, q, dirx, diry, dirz
         return new_state, jnp.stack(new_state)  # Ensuring shape consistency
 
     # Run JAX optimized loop (reverse integration order)
-    _, trajectory = jax.lax.scan(step_fn, state, None, length=N_STEPS, unroll=True)
+    _, trajectory = jax.lax.scan(step_fn, state, None, length=N_STEPS)#, unroll=True)
 
     # Ensure trajectory shape is (MAX_LENGHT-1, 6)
     trajectory = jnp.vstack(trajectory)  # Shape: (MAX_LENGHT-1, 6)

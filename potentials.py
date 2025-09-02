@@ -90,6 +90,30 @@ def NFWHessian(x, y, z, logM, Rs, q, dirx, diry, dirz):
     hess = jax.hessian(potential_func)(jnp.array([x, y, z]))
     return hess # 1/Gyr2
 
+@jax.jit
+def NFWdHessian(x, y, z, logM, Rs, q, dirx, diry, dirz):
+    """
+    Computes the derivative of the Hessian matrix of the NFW potential at a given position.
+
+    Args:
+        x (float): x-coordinate.
+        y (float): y-coordinate.
+        z (float): z-coordinate.
+        logM (float): Logarithm of the mass of the halo.
+        Rs (float): Scale radius of the halo.
+        q (float): Axis ratio.
+        dirx (float): x-component of the direction vector.
+        diry (float): y-component of the direction vector.
+        dirz (float): z-component of the direction vector.
+
+    Returns:
+        jnp.ndarray: The Hessian matrix at the given position.
+    """
+    potential_func = lambda pos: NFWPotential(pos[0], pos[1], pos[2], logM, Rs, q, dirx, diry, dirz)
+
+    hess = jax.grad(jax.hessian(potential_func))(jnp.array([x, y, z]))
+    return hess # 1/Gyr2/kpc
+
 ### Plummer Functions ###
 @jax.jit
 def PlummerPotential(x, y, z, logM, Rs, x_origin=0.0, y_origin=0.0, z_origin=0.0):
@@ -158,3 +182,26 @@ def PlummerHessian(x, y, z, logM, Rs, x_origin= 0.0, y_origin=0.0, z_origin=0.0)
     
     hess = jax.hessian(potential_func)(jnp.array([x, y, z]))
     return hess # 1/Gyr²
+
+@jax.jit
+def PlummerdHessian(x, y, z, logM, Rs, x_origin= 0.0, y_origin=0.0, z_origin=0.0):
+    """
+    Computes the derivative of the Hessian matrix of the Plummer potential at a given position.
+    
+    Args:
+        x (float): x-coordinate.
+        y (float): y-coordinate.
+        z (float): z-coordinate.
+        logM (float): Logarithm of the mass of the halo.
+        Rs (float): Scale radius of the halo.
+        x_origin (float): x-coordinate of the origin.
+        y_origin (float): y-coordinate of the origin.
+        z_origin (float): z-coordinate of the origin.
+
+    Returns:
+        jnp.ndarray: The Hessian matrix at the given position.
+    """
+    potential_func = lambda pos: PlummerPotential(pos[0], pos[1], pos[2], logM, Rs, x_origin, y_origin, z_origin)
+
+    hess = jax.grad(jax.hessian(potential_func))(jnp.array([x, y, z]))
+    return hess # 1/Gyr²/kpc

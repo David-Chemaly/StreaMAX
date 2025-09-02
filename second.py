@@ -2,7 +2,7 @@ import jax
 import jax.numpy as jnp
 
 from utils import unwrap_step
-from potentials import NFWAcceleration, PlummerAcceleration, NFWHessian, PlummerHessian
+from potentials import NFWAcceleration, PlummerAcceleration, NFWHessian, PlummerHessian, NFWdHessian, PlummerdHessian
 from utils import jax_unwrap, get_rj_vj_R
 from constants import KMS_TO_KPCGYR, KPCGYR_TO_KMS, TWOPI
 
@@ -64,7 +64,7 @@ def leapfrog_first_combined_step(state, dt, logM, Rs, q, dirx, diry, dirz, logm,
     """
     Leapfrog integration step for both satellite and stream motion for NFW and Plummer potentials.
     """
-    (x, y, z, vx, vy, vz, xp, yp, zp, vxp, vyp, vzp), S, dS = state
+    (x, y, z, vx, vy, vz, xp, yp, zp, vxp, vyp, vzp), S, dS, T, dT = state
 
     # Update Satellite Position
     axp, ayp, azp = NFWAcceleration(xp, yp, zp, logM, Rs, q, dirx, diry, dirz)
@@ -102,19 +102,32 @@ def leapfrog_first_combined_step(state, dt, logM, Rs, q, dirx, diry, dirz, logm,
     vy_new = vy_half + 0.5 * dt * ay_new
     vz_new = vz_half + 0.5 * dt * az_new
 
-    # Update first degree
+    # Update first and second order
     Hess_old = NFWHessian(x, y, z, logM, Rs, q, dirx, diry, dirz) +  \
                     PlummerHessian(x, y, z, logm, rs, x_origin=xp, y_origin=yp, z_origin=zp)
+    dHess_old = NFWdHessian(x, y, z, logM, Rs, q, dirx, diry, dirz) +  \
+                    PlummerdHessian(x, y, z, logm, rs, x_origin=xp, y_origin=yp, z_origin=zp)
+    
     ddS = -Hess_old @ S 
     dS_half = dS + 0.5 * dt * ddS  
     S_new = S + dt * dS_half  
 
+    ddT = -jnp.einsum('TODO', Hess_old, S, S) - dHess_old @ T
+    dT_half = dT + 0.5 * dt * ddT
+    T_new = T + dt * dT_half
+
     Hess_new = NFWHessian(x_new, y_new, z_new, logM, Rs, q, dirx, diry, dirz)  +  \
                     PlummerHessian(x_new, y_new, z_new, logm, rs, x_origin=xp_new, y_origin=yp_new, z_origin=zp_new)
+    dHess_new = NFWdHessian(x_new, y_new, z_new, logM, Rs, q, dirx, diry, dirz) +  \
+                    PlummerdHessian(x_new, y_new, z_new, logm, rs, x_origin=xp_new, y_origin=yp_new, z_origin=zp_new)
+    
     ddS_new = -Hess_new @ S_new
     dS_new = dS_half + 0.5 * dt * ddS_new 
 
-    return (x_new, y_new, z_new, vx_new, vy_new, vz_new, xp_new, yp_new, zp_new, vxp_new, vyp_new, vzp_new), S_new, dS_new
+    ddT_new = -jnp.einsum('TODO', Hess_new, S_new, S_new) - dHess_new @ T_new
+    dT_new = dT_half + 0.5 * dt * ddT_new
+
+    return (x_new, y_new, z_new, vx_new, vy_new, vz_new, xp_new, yp_new, zp_new, vxp_new, vyp_new, vzp_new), S_new, dS_new, T_new, dT_new
 
 @jax.jit
 def integrate_stream_first(index, x0, y0, z0, vx0, vy0, vz0, theta_sat, xv_sat, logM, Rs, q, dirx, diry, dirz, logm, rs, time):
@@ -246,10 +259,10 @@ def generate_stream_first(params,  seed, tail=0):
     samples = jax.vmap(create_ic_particle_first, in_axes=(None, None, None, None, None, 0))(forward_trajectory, rj, vj, R, tail, seeds)
 
     index = jnp.repeat(jnp.arange(0, N_STEPS, 1), N_PARTICLES // N_STEPS)
-    theta_stream , xv_stream, S, dS = jax.vmap(integrate_stream_first, in_axes=(0, 0, 0, 0, 0, 0, 0, None, None, None, None, None, None, None, None, None, None, None)) \
+    theta_stream , xv_stream, S, dS, T, dT = jax.vmap(integrate_stream_first, in_axes=(0, 0, 0, 0, 0, 0, 0, None, None, None, None, None, None, None, None, None, None, None)) \
         (index, ic_particle_first[:, 0], ic_particle_first[:, 1], ic_particle_first[:, 2], ic_particle_first[:, 3], ic_particle_first[:, 4], ic_particle_first[:, 5],
         theta_sat_forward, forward_trajectory, logM, Rs, q, dirx, diry, dirz, logm, rs, time*alpha)
 
     xv_stream *= jnp.array([1, 1, 1, KPCGYR_TO_KMS, KPCGYR_TO_KMS, KPCGYR_TO_KMS])  # Convert velocities back to km/s
     forward_trajectory *= jnp.array([1, 1, 1, KPCGYR_TO_KMS, KPCGYR_TO_KMS, KPCGYR_TO_KMS])  # Convert velocities back to km/s
-    return theta_stream, xv_stream, theta_sat_forward, forward_trajectory, S, dS, ic_particle_first, samples
+    return theta_stream, xv_stream, theta_sat_forward, forward_trajectory, S, dS, T, dT, ic_particle_first, samples
