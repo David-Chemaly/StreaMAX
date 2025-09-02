@@ -7,26 +7,26 @@ import numpy as np
 import os
 import pickle
 
-def get_stream(seed, sigma=2):
+def get_stream(seed, sigma=2, ndim=13, min_count=10):
     is_data = False
     rng = np.random.default_rng(int(seed))
 
-    p = rng.uniform(0, 1, size=14)
+    p = rng.uniform(0, 1, size=ndim)
 
     while not is_data:
-        xv = rng.uniform(0, 1, size=11)  # Resample 6D phase space
+        xv = rng.uniform(0, 1, size=ndim-3)  # Resample 6D phase space
         p[:2] = xv[:2]
         p[5:] = xv[2:]
         params = prior_transform(p)
         q = get_q(params[2], params[3], params[4])
-        params = np.concatenate([params[:2], [q], params[2:8], [0.], params[8:]])
+        params = np.concatenate([params[:2], [q], params[2:8], [0.], params[8:], [1.]])
 
         theta_stream, xv_stream, theta_sat, xv_sat = generate_stream_spray(params,  seed=111)
         count, theta_bin, r_bin, w_bin = get_track(theta_stream, xv_stream[:, 0], xv_stream[:, 1])
         r_stream = jnp.sqrt(xv_stream[:, 0]**2 + xv_stream[:, 1]**2)
 
-        crit1 = jnp.all(jnp.diff(jnp.where(count > 100)[0]) == 1) # Must be continuous and
-        crit2 = jnp.sum(jnp.where(count > 100, 1, 0)) > 9   # Must have at least 10 bins with more than 100 particles
+        crit1 = jnp.all(jnp.diff(jnp.where(count > min_count)[0]) == 1) # Must be continuous and
+        crit2 = jnp.sum(jnp.where(count > min_count, 1, 0)) > 9   # Must have at least 10 bins with more than 100 particles
         crit3 = jnp.nansum(r_bin[:-1]*jnp.tanh(jnp.diff(theta_bin))) > 100 # Must have length of at least 100kpc
         crit4 = jnp.min(r_stream) > 2  # Must be further than 2kpc minimum
         crit5 = jnp.max(r_stream) < 500  # Must be less than 500kpc

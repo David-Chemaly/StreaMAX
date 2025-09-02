@@ -51,7 +51,7 @@ if __name__ == "__main__":
     N = 100
     seeds = np.arange(100)
 
-    ndim  = 14
+    ndim  = 13
     nlive = 1000
     sigma = 1
 
@@ -83,7 +83,7 @@ if __name__ == "__main__":
                 pickle.dump(dict_results, f)
 
             # Plot and Save corner plot
-            labels = ['logM', 'Rs', 'dirx', 'diry', 'dirz', 'logm', 'rs', 'x0', 'z0', 'vx0', 'vy0', 'vz0', 'time', 'alpha']
+            labels = ['logM', 'Rs', 'dirx', 'diry', 'dirz', 'logm', 'rs', 'x0', 'z0', 'vx0', 'vy0', 'vz0', 'time']
             figure = corner.corner(dict_results['samps'], 
                         labels=labels,
                         color='blue',
@@ -115,7 +115,7 @@ if __name__ == "__main__":
 
             best_params = dict_results['samps'][np.argmax(dict_results['logl'])]
             q_best = get_q(best_params[2], best_params[3], best_params[4])
-            best_params = np.concatenate([best_params[:2], [q_best], best_params[2:8], [0.], best_params[8:]])
+            best_params = np.concatenate([best_params[:2], [q_best], best_params[2:8], [0.], best_params[8:], [1.]])
             np.savetxt(os.path.join(path, f'best_params_nlive{nlive}_sigma{sigma}.txt'), best_params)
 
             theta_stream, xv_stream, theta_sat, xv_sat = generate_stream_spray(best_params, seed=111)

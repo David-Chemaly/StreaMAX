@@ -36,11 +36,11 @@ def sample_params(seed):
 
 # @jax.jit
 def prior_transform(p):
-    #ndim = 14
+    #ndim = 13
     logM, Rs, dirx, diry, dirz, \
     logm, rs, \
     x0, z0, vx0, vy0, vz0, \
-    t0, a0 = p
+    t0 = p
 
     logM1 = 11 + 3 * logM
     Rs1   = 5 + 20 * Rs
@@ -60,11 +60,11 @@ def prior_transform(p):
     vz1 = jax.scipy.special.ndtri(vz0) * 250
 
     t1 = 1 + 3 * t0
-    a1 = 0.9 + 0.2 * a0
+    # a1 = 0.9 + 0.2 * a0
     
     return jnp.array([
         logM1, Rs1, dirx1, diry1, dirz1,
         logm1, rs1,
         x1, z1, vx1, vy1, vz1,
-        t1, a1
+        t1
     ])
