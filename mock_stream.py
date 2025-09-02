@@ -91,3 +91,4 @@ if __name__ == "__main__":
         plt.ylabel('Radius (kpc)')
         plt.tight_layout()
         plt.savefig(os.path.join(path, 'stream.pdf'))
+        plt.close()
