@@ -105,13 +105,13 @@ def leapfrog_first_combined_step(state, dt, logM, Rs, q, dirx, diry, dirz, logm,
     # Update first degree
     Hess_old = NFWHessian(x, y, z, logM, Rs, q, dirx, diry, dirz) +  \
                     PlummerHessian(x, y, z, logm, rs, x_origin=xp, y_origin=yp, z_origin=zp)
-    ddS = Hess_old @ S 
+    ddS = -Hess_old @ S 
     dS_half = dS + 0.5 * dt * ddS  
     S_new = S + dt * dS_half  
 
     Hess_new = NFWHessian(x_new, y_new, z_new, logM, Rs, q, dirx, diry, dirz)  +  \
                     PlummerHessian(x_new, y_new, z_new, logm, rs, x_origin=xp_new, y_origin=yp_new, z_origin=zp_new)
-    ddS_new = Hess_new @ S_new
+    ddS_new = -Hess_new @ S_new
     dS_new = dS_half + 0.5 * dt * ddS_new 
 
     return (x_new, y_new, z_new, vx_new, vy_new, vz_new, xp_new, yp_new, zp_new, vxp_new, vyp_new, vzp_new), S_new, dS_new
@@ -171,7 +171,7 @@ def integrate_stream_first(index, x0, y0, z0, vx0, vy0, vz0, theta_sat, xv_sat, 
     return theta_stream, jnp.array(trajectory[0])[1:7], jnp.array(trajectory[1]), jnp.array(trajectory[2])  # Return the stream state and Hessian
 
 @jax.jit
-def create_ic_particle_first(orbit_sat, rj, vj, R, tail=0, seed=111):
+def create_ic_particle_first(orbit_sat, rj, vj, R, tail=0, seed=111, ref=0):
     key=jax.random.PRNGKey(seed)
     N = rj.shape[0]
 
@@ -233,7 +233,7 @@ def generate_stream_first(params,  seed, tail=0):
     rj, vj, R = get_rj_vj_R(hessians, forward_trajectory, 10 ** logm)
     ic_particle_first = create_ic_particle_first(forward_trajectory, rj, vj, R, tail, seed)
 
-    seeds = jnp.arange(0, 10, 1)
+    seeds = jnp.arange(0, 99, 1)
     samples = jax.vmap(create_ic_particle_first, in_axes=(None, None, None, None, None, 0))(forward_trajectory, rj, vj, R, tail, seeds)
 
     index = jnp.repeat(jnp.arange(0, N_STEPS, 1), N_PARTICLES // N_STEPS)

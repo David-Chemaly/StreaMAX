@@ -137,3 +137,17 @@ def unwrap_stream_from_unwrapped_orbit(theta_sat, theta_stream, n_particles=1000
                             (1 + jnp.sign(algin_reference - jnp.pi))/2 * (algin_reference - 2 * jnp.pi)
     
     return final_theta_stream
+
+@jax.jit
+def inference_stream(theta_stream, xv_stream, refs, S, seed=111, disp_x=0.5, disp_v=0.5):
+    key=jax.random.PRNGKey(seed)
+    disp = jnp.array([disp_x, disp_x, disp_x, disp_v, disp_v, disp_v])
+
+    samples = jax.random.normal(key, shape=(10, len(refs), 6)) * disp + refs
+    samples_final = xv_stream[:, :3]+ jnp.einsum('ijk, nik -> nij', S, samples - refs)
+
+    theta_samples = jnp.arctan2(samples_final[:, :,1], samples_final[:, :, 0])
+    theta_samples = jnp.where(theta_samples < 0, theta_samples + 2 * jnp.pi, theta_samples)
+    unwrapped_theta_samples = jax.vmap(unwrap_step, in_axes=(0, None))(theta_samples, theta_stream)
+
+    return unwrapped_theta_samples.reshape(-1), samples_final.reshape(-1, 3)
