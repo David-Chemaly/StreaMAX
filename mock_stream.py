@@ -59,7 +59,7 @@ if __name__ == "__main__":
     seeds = jnp.arange(100)
 
     for seed in tqdm(seeds, leave=True):
-        path = f'MockStreams/seed{seed}'
+        path = f'/data/dc824-2/MockStreams/seed{seed}'
         os.makedirs(path, exist_ok=True)
 
         dict_stream = get_stream(seed, sigma=2)
