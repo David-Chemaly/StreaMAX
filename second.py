@@ -112,7 +112,7 @@ def leapfrog_first_combined_step(state, dt, logM, Rs, q, dirx, diry, dirz, logm,
     dS_half = dS + 0.5 * dt * ddS  
     S_new = S + dt * dS_half  
 
-    ddT = -jnp.einsum('TODO', Hess_old, S, S) - dHess_old @ T
+    ddT = -jnp.einsum('ijl, jk, lm -> ikm', dHess_old, S, S) - jnp.einsum('il, lkm -> ikm', Hess_old, T)
     dT_half = dT + 0.5 * dt * ddT
     T_new = T + dt * dT_half
 
@@ -124,7 +124,7 @@ def leapfrog_first_combined_step(state, dt, logM, Rs, q, dirx, diry, dirz, logm,
     ddS_new = -Hess_new @ S_new
     dS_new = dS_half + 0.5 * dt * ddS_new 
 
-    ddT_new = -jnp.einsum('TODO', Hess_new, S_new, S_new) - dHess_new @ T_new
+    ddT_new = -jnp.einsum('ijl, jk, lm -> ikm', dHess_new, S_new, S_new) - jnp.einsum('il, lkm -> ikm', Hess_new, T_new)
     dT_new = dT_half + 0.5 * dt * ddT_new
 
     return (x_new, y_new, z_new, vx_new, vy_new, vz_new, xp_new, yp_new, zp_new, vxp_new, vyp_new, vzp_new), S_new, dS_new, T_new, dT_new
@@ -143,13 +143,13 @@ def integrate_stream_first(index, x0, y0, z0, vx0, vy0, vz0, theta_sat, xv_sat, 
     dS = jnp.block([jnp.zeros([3,3]), jnp.eye(3)])
 
     T  = jnp.zeros([3, 6, 6])
-    T[0,0,0] = 1
-    T[1,1,1] = 1
-    T[2,2,2] = 1
+    T = T.at[0,0,0].set(1)
+    T = T.at[1,1,1].set(1)
+    T = T.at[2,2,2].set(1)
     dT = jnp.zeros([3, 6, 6])
-    dT[0,3,3] = 1
-    dT[1,4,4] = 1
-    dT[2,5,5] = 1
+    dT = dT.at[0,3,3].set(1)
+    dT = dT.at[1,4,4].set(1)
+    dT = dT.at[2,5,5].set(1)
 
     state = ((theta0, x0, y0, z0, vx0, vy0, vz0, xp, yp, zp, vxp, vyp, vzp), S, dS, T, dT)
     dt_sat = time / N_STEPS
@@ -233,7 +233,7 @@ def create_ic_particle_first(orbit_sat, rj, vj, R, tail=0, seed=111, ref=0):
     return ic_stream  # Shape: (N_particule, 6)
 
 @jax.jit
-def generate_stream_first(params,  seed, tail=0):
+def generate_stream_second(params,  seed, tail=0):
     """
     Generates a stream spray based on the provided parameters and integrates the satellite motion.
     """
@@ -263,6 +263,6 @@ def generate_stream_first(params,  seed, tail=0):
         (index, ic_particle_first[:, 0], ic_particle_first[:, 1], ic_particle_first[:, 2], ic_particle_first[:, 3], ic_particle_first[:, 4], ic_particle_first[:, 5],
         theta_sat_forward, forward_trajectory, logM, Rs, q, dirx, diry, dirz, logm, rs, time*alpha)
 
-    xv_stream *= jnp.array([1, 1, 1, KPCGYR_TO_KMS, KPCGYR_TO_KMS, KPCGYR_TO_KMS])  # Convert velocities back to km/s
-    forward_trajectory *= jnp.array([1, 1, 1, KPCGYR_TO_KMS, KPCGYR_TO_KMS, KPCGYR_TO_KMS])  # Convert velocities back to km/s
+    # xv_stream *= jnp.array([1, 1, 1, KPCGYR_TO_KMS, KPCGYR_TO_KMS, KPCGYR_TO_KMS])  # Convert velocities back to km/s
+    # forward_trajectory *= jnp.array([1, 1, 1, KPCGYR_TO_KMS, KPCGYR_TO_KMS, KPCGYR_TO_KMS])  # Convert velocities back to km/s
     return theta_stream, xv_stream, theta_sat_forward, forward_trajectory, S, dS, T, dT, ic_particle_first, samples

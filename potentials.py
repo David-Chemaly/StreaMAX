@@ -111,8 +111,8 @@ def NFWdHessian(x, y, z, logM, Rs, q, dirx, diry, dirz):
     """
     potential_func = lambda pos: NFWPotential(pos[0], pos[1], pos[2], logM, Rs, q, dirx, diry, dirz)
 
-    hess = jax.grad(jax.hessian(potential_func))(jnp.array([x, y, z]))
-    return hess # 1/Gyr2/kpc
+    dhess = jax.jacfwd(jax.hessian(potential_func))(jnp.array([x, y, z]))
+    return dhess # 1/Gyr2/kpc
 
 ### Plummer Functions ###
 @jax.jit
@@ -203,5 +203,5 @@ def PlummerdHessian(x, y, z, logM, Rs, x_origin= 0.0, y_origin=0.0, z_origin=0.0
     """
     potential_func = lambda pos: PlummerPotential(pos[0], pos[1], pos[2], logM, Rs, x_origin, y_origin, z_origin)
 
-    hess = jax.grad(jax.hessian(potential_func))(jnp.array([x, y, z]))
-    return hess # 1/Gyr²/kpc
+    dhess = jax.jacfwd(jax.hessian(potential_func))(jnp.array([x, y, z]))
+    return dhess # 1/Gyr²/kpc

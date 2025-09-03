@@ -197,6 +197,15 @@ def create_ic_particle_first(orbit_sat, rj, vj, R, tail=0, seed=111, ref=0):
     rvz = jax.random.normal(subkey_vz, shape=(N_PARTICLES//N_STEPS * N,)) * disp_vz * vj
     rx *= rj  # Scale x displacement by rj
 
+    # # Generate fixed samples from [-3, 3] sigma
+    # sigma_range = 3
+    # fixed_sigma = jnp.tile(jnp.repeat(jnp.linspace(-sigma_range, sigma_range, N_PARTICLES//N_STEPS+2)[1:-1], 2), N//2)
+    # rx  = fixed_sigma * disp_x + mean_x
+    # rz  = fixed_sigma * disp_z * rj
+    # rvy = (fixed_sigma * disp_vy + mean_vy) * vj * rx
+    # rvz = fixed_sigma * disp_vz * vj
+    # rx *= rj  # Scale x displacement by rj
+
     # Position and velocity offsets in the satellite reference frame
     offset_pos = jnp.column_stack([rx, jnp.zeros_like(rx), rz])  # Shape: (2N, 3)
     offset_vel = jnp.column_stack([jnp.zeros_like(rx), rvy, rvz])  # Shape: (2N, 3)
