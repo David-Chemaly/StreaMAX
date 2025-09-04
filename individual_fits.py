@@ -7,7 +7,7 @@ import dynesty
 import dynesty.utils as dyut
 
 from spray import generate_stream_spray
-from likelihoods import log_likelihood
+from likelihoods import log_likelihood_spray_base
 from priors import prior_transform
 from utils import get_q, get_track
 
@@ -20,7 +20,7 @@ def dynesty_fit(dict_data, ndim=14, nlive=2000, sigma=2):
     nthreads = os.cpu_count()
     mp.set_start_method("spawn", force=True)
     with mp.Pool(nthreads) as poo:
-        dns = dynesty.DynamicNestedSampler(log_likelihood,
+        dns = dynesty.DynamicNestedSampler(log_likelihood_spray_base,
                                 prior_transform,
                                 ndim,
                                 logl_args=(dict_data, sigma),
@@ -52,8 +52,8 @@ if __name__ == "__main__":
     seeds = np.arange(100)
 
     ndim  = 13
-    nlive = 1000
-    sigma = 1
+    nlive = 2000
+    sigma = 2
 
     for seed in tqdm(seeds, leave=True):
         path = f'/data/dc824-2/MockStreams/seed{seed}' 
@@ -75,8 +75,8 @@ if __name__ == "__main__":
             dict_data['r_sig'] = r_sig
             dict_data['x_bin'] = dict_data['r_bin'] * np.cos(dict_data['theta_bin'])
             dict_data['y_bin'] = dict_data['r_bin'] * np.sin(dict_data['theta_bin'])
-            print(log_likelihood(params_data, dict_data))
-            
+            print(log_likelihood_spray_base(params_data, dict_data))
+
             # Fit with dynesty
             dict_results = dynesty_fit(dict_data, ndim=ndim, nlive=nlive)
             with open(os.path.join(path, f'dict_results_nlive{nlive}_sigma{sigma}.pkl'), 'wb') as f:
