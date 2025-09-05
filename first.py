@@ -7,7 +7,7 @@ from utils import jax_unwrap, get_rj_vj_R
 from constants import KMS_TO_KPCGYR, KPCGYR_TO_KMS, TWOPI
 
 N_STEPS = 100
-N_PARTICLES = 1000
+N_PARTICLES = 500
 
 ### Satellite Functions ###
 @jax.jit
@@ -196,10 +196,15 @@ def create_ic_particle_first(orbit_sat, rj, vj, R, tail=0, seed=111, ref=0):
     rvy = (jax.random.normal(subkey_vy, shape=(N_PARTICLES//N_STEPS * N,)) * disp_vy + mean_vy) * vj * rx
     rvz = jax.random.normal(subkey_vz, shape=(N_PARTICLES//N_STEPS * N,)) * disp_vz * vj
     rx *= rj  # Scale x displacement by rj
+    fixed_weights = jnp.ones_like(rx)
 
     # # Generate fixed samples from [-3, 3] sigma
     # sigma_range = 3
-    # fixed_sigma = jnp.tile(jnp.repeat(jnp.linspace(-sigma_range, sigma_range, N_PARTICLES//N_STEPS+2)[1:-1], 2), N//2)
+    # sigmas = jnp.linspace(-sigma_range, sigma_range, N_PARTICLES//2//N_STEPS+2)[1:-1] #jnp.array([-2, -1, 0, 1, 2]) #
+    # fixed_sigma = jnp.tile(jnp.repeat(sigmas, 2), N)
+    # weights = jnp.exp(-0.5 * sigmas**2)
+    # weights /= jnp.sum(weights)
+    # fixed_weights  = jnp.tile(jnp.repeat(weights, 2), N)
     # rx  = fixed_sigma * disp_x + mean_x
     # rz  = fixed_sigma * disp_z * rj
     # rvy = (fixed_sigma * disp_vy + mean_vy) * vj * rx
@@ -217,7 +222,7 @@ def create_ic_particle_first(orbit_sat, rj, vj, R, tail=0, seed=111, ref=0):
 
     ic_stream = orbit_sat_repeated + jnp.concatenate([offset_pos_transformed, offset_vel_transformed], axis=-1)
 
-    return ic_stream  # Shape: (N_particule, 6)
+    return ic_stream, fixed_weights  # Shape: (N_particule, 6)
 
 @jax.jit
 def generate_stream_first(params,  seed, tail=0):
@@ -240,10 +245,10 @@ def generate_stream_first(params,  seed, tail=0):
     hessians  = jax.vmap(NFWHessian, in_axes=(0, 0, 0, None, None, None, None, None, None)) \
                         (forward_trajectory[:, 0], forward_trajectory[:, 1], forward_trajectory[:, 2], logM, Rs, q, dirx, diry, dirz)
     rj, vj, R = get_rj_vj_R(hessians, forward_trajectory, 10 ** logm)
-    ic_particle_first = create_ic_particle_first(forward_trajectory, rj, vj, R, tail, seed)
+    ic_particle_first, weights_first = create_ic_particle_first(forward_trajectory, rj, vj, R, tail, seed)
 
     seeds = jnp.arange(0, 99, 1)
-    samples = jax.vmap(create_ic_particle_first, in_axes=(None, None, None, None, None, 0))(forward_trajectory, rj, vj, R, tail, seeds)
+    samples, weights_samples = jax.vmap(create_ic_particle_first, in_axes=(None, None, None, None, None, 0))(forward_trajectory, rj, vj, R, tail, seeds)
 
     index = jnp.repeat(jnp.arange(0, N_STEPS, 1), N_PARTICLES // N_STEPS)
     theta_stream , xv_stream, S, dS = jax.vmap(integrate_stream_first, in_axes=(0, 0, 0, 0, 0, 0, 0, None, None, None, None, None, None, None, None, None, None, None)) \
@@ -252,4 +257,4 @@ def generate_stream_first(params,  seed, tail=0):
 
     # xv_stream *= jnp.array([1, 1, 1, KPCGYR_TO_KMS, KPCGYR_TO_KMS, KPCGYR_TO_KMS])  # Convert velocities back to km/s
     # forward_trajectory *= jnp.array([1, 1, 1, KPCGYR_TO_KMS, KPCGYR_TO_KMS, KPCGYR_TO_KMS])  # Convert velocities back to km/s
-    return theta_stream, xv_stream, theta_sat_forward, forward_trajectory, S, dS, ic_particle_first, samples
+    return theta_stream, xv_stream, theta_sat_forward, forward_trajectory, S, dS, ic_particle_first, weights_first, samples, weights_samples

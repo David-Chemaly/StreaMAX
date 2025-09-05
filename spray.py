@@ -8,7 +8,7 @@ from utils import jax_unwrap, get_rj_vj_R
 from constants import KMS_TO_KPCGYR, KPCGYR_TO_KMS, TWOPI
 
 N_STEPS = 100
-N_PARTICLES = 1000
+N_PARTICLES = 500
 
 ### Satellite Functions ###
 @jax.jit

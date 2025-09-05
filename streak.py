@@ -9,6 +9,7 @@ from constants import KMS_TO_KPCGYR, KPCGYR_TO_KMS, TWOPI
 
 N_STEPS = 100
 N_PARTICLES = 500
+BUFFER_SIZE = 5
 
 ### Satellite Functions ###
 @jax.jit
@@ -107,7 +108,7 @@ def leapfrog_combined_step(state, dt, logM, Rs, q, dirx, diry, dirz, logm, rs):
     return (x_new, y_new, z_new, vx_new, vy_new, vz_new, xp_new, yp_new, zp_new, vxp_new, vyp_new, vzp_new)
 
 @jax.jit
-def integrate_stream_streak(index, x0, y0, z0, vx0, vy0, vz0, theta_sat, xv_sat, logM, Rs, q, dirx, diry, dirz, logm, rs, time, buffer_size=20):
+def integrate_stream_streak(index, x0, y0, z0, vx0, vy0, vz0, theta_sat, xv_sat, logM, Rs, q, dirx, diry, dirz, logm, rs, time, buffer_size=BUFFER_SIZE):
     # State is a flat tuple of six scalars.
     xp, yp, zp, vxp, vyp, vzp = xv_sat[index]
     thetap = theta_sat[index]
@@ -226,3 +227,4 @@ def generate_stream_streak(params,  seed, tail=0):
     xv_stream *= jnp.array([1, 1, 1, KPCGYR_TO_KMS, KPCGYR_TO_KMS, KPCGYR_TO_KMS])  # Convert velocities back to km/s
     forward_trajectory *= jnp.array([1, 1, 1, KPCGYR_TO_KMS, KPCGYR_TO_KMS, KPCGYR_TO_KMS])  # Convert velocities back to km/s
     return theta_stream.reshape(-1,), xv_stream.reshape(-1, 6), theta_sat_forward, forward_trajectory
+
