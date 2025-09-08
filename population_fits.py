@@ -1,4 +1,5 @@
 import os
+import corner
 import pickle
 import numpy as np
 from tqdm import tqdm
@@ -15,24 +16,24 @@ from utils import get_q
 #################################
 # Uniform Population Fits
 #################################
-def uniform(x, a, b):
-    return np.where((x >= a) & (x <= b), 1/(b-a), 0)
+def uniform(x, a, delta):
+    return np.where((x >= a-delta) & (x <= a+delta), 1/delta, 0)
 
 def prior_transform_uniform(p):
-    a0, b0 = p
+    a0, delta0 = p
 
     a1 = 2*a0
-    b1 = 2*b0
+    delta1 = 2*delta0
 
-    return [a1, b1]
+    return [a1, delta1]
 
 def log_likelihood_uniform(theta, q_fits):
-    a, b = theta
+    a, delta = theta
 
     # Log-likelihood
     log_likelihood = 0
     for i in range(len(q_fits)):
-        likelihood      = np.mean(uniform(q_fits[i], a, b))
+        likelihood      = np.mean(uniform(q_fits[i], a, delta))
         log_likelihood += np.log(likelihood)
 
     return log_likelihood
@@ -130,9 +131,9 @@ def binomial(x, mu1, mu2, sigma1, sigma2, prob=0.5):
 def prior_transform_binomial(p):
     mu1, mu2, sigma1, sigma2 = p
 
-    mu1    = 2*mu1
+    mu1    = mu1
     sigma1 = 2*sigma1
-    mu2    = 2*mu2
+    mu2    = mu2+1
     sigma2 = 2*sigma2
     # prob   = 1 - prob
 
@@ -178,6 +179,12 @@ def dynesty_fit_binomial(dict_data, ndim=4, nlive=500):
 
     return dns_results
 
+def subset_as_uniform(u, a, delta, N=None):
+    accept = np.where((u >= a - delta) & (u <= a + delta))[0]
+    if N is not None:
+        accept = np.random.choice(accept, size=N, replace=False)
+    return accept
+
 def subset_as_gaussian(u, mu, sigma, N=None):
     w = norm.pdf(u, loc=mu, scale=sigma)
     p = w / w.max()
@@ -208,12 +215,12 @@ def subset_as_binomial(u, mu1=0.8, mu2=1.2, sigma1=0.1, sigma2=0.1, N=None, prob
 
 if __name__ == "__main__":
     true_dist = 'uniform'
-    true_a = 0.5
-    true_b = 1.5
+    true_a = 1.0
+    true_b = 0.5
     true_c = 0.
     true_d = 0.
-    fit_dist = 'binomial'
-    fit_type = 'BtoU'
+    fit_dist = 'uniform'
+    fit_type = 'UtoU'
     N_pop = None
 
     sigma = 2
@@ -235,11 +242,11 @@ if __name__ == "__main__":
     q_true = np.array(q_true)
 
     if true_dist == 'uniform':
-        arg_take = np.where((q_true >= true_a) & (q_true <= true_b))[0]
+        arg_take = subset_as_uniform(q_true, true_a, true_b, N=N_pop)
     elif true_dist =='gaussian':
-        arg_take = subset_as_gaussian(q_true, true_a, true_b)
+        arg_take = subset_as_gaussian(q_true, true_a, true_b, N=N_pop)
     elif true_dist == 'binomial':
-        arg_take = subset_as_binomial(q_true, true_a, true_b, true_c, true_d)
+        arg_take = subset_as_binomial(q_true, true_a, true_b, true_c, true_d, N=N_pop)
 
     q_true = q_true[arg_take]
     new_q_fits = []
@@ -248,13 +255,29 @@ if __name__ == "__main__":
     q_fits = new_q_fits
 
     if fit_dist == 'uniform':
+        labels = [r'$a$', r'$b$']
+        print(f'Fitting {len(q_true)} streams with [{np.mean(q_true):.2f}, {abs(np.max(q_true)-np.min(q_true))/2:.2f}]')
         dict_results = dynesty_fit_uniform(q_fits, ndim=2, nlive=500)
     elif fit_dist == 'gaussian':
+        labels = [r'$\mu$', r'$\sigma$']
+        print(f'Fitting {len(q_true)} streams with {np.mean(q_true):.2f} +/- {np.std(q_true):.2f}')
         dict_results = dynesty_fit_gaussian(q_fits, ndim=2, nlive=500)
     elif fit_dist == 'binomial':
+        labels = [r'$\mu_1$', r'$\mu_2$', r'$\sigma_1$', r'$\sigma_2$']
+        print(f'Fitting {len(q_true)} streams with {np.mean(q_true[q_true<1.0]):.2f} +/- {np.std(q_true[q_true<1.0]):.2f} and \
+                    {np.mean(q_true[q_true>=1.0]):.2f} +/- {np.std(q_true[q_true>=1.0]):.2f} instead of {true_a:.2f} +/- {true_b:.2f}')
         dict_results = dynesty_fit_binomial(q_fits, ndim=4, nlive=1000)
-    with open(os.path.join('./MockStreams', f'dict_pop_nlive{nlive}_sigma{sigma}_N{len(q_true)}_'+fit_type+'.pkl'), 'wb') as f:
+    with open(os.path.join('./MockStreams', f'dict_pop_nlive{nlive}_sigma{sigma}_N{len(q_true)}_'+fit_type+f'_{true_a}-{true_b}.pkl'), 'wb') as f:
         pickle.dump(dict_results, f)
 
-    # Plots
-    
+    # Plots the corner plots
+    figure = corner.corner(dict_results['samps'], 
+            labels=labels,
+            color='blue',
+            quantiles=[0.16, 0.5, 0.84],
+            show_titles=True, 
+            title_kwargs={"fontsize": 16},
+            truths=[true_a, true_b], 
+            truth_color='red')
+    figure.savefig(os.path.join(path, f'corner_plot_nlive{nlive}_sigma{sigma}_N{len(q_true)}_'+fit_type+f'_{true_a}-{true_b}.pdf'))
+    plt.close(figure)
