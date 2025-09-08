@@ -8,6 +8,9 @@ import matplotlib.pyplot as plt
 plt.rcParams.update({'font.size': 18})
 from scipy.stats import norm
 
+import jax
+import jax.numpy as jnp
+
 import dynesty
 import dynesty.utils as dyut
 
@@ -16,30 +19,36 @@ from utils import get_q
 #################################
 # Uniform Population Fits
 #################################
+@jax.jit
 def uniform(x, a, delta):
-    return np.where((x >= a-delta) & (x <= a+delta), 1/delta, 0)
+    return jnp.where((x >= a-delta) & (x <= a+delta), 1./delta, 0)
 
+@jax.jit
 def prior_transform_uniform(p):
     a0, delta0 = p
 
     a1 = 2*a0
     delta1 = 2*delta0
 
-    return [a1, delta1]
+    return jnp.array([a1, delta1])
 
+@jax.jit
 def log_likelihood_uniform(theta, q_fits):
     a, delta = theta
 
-    # Log-likelihood
-    log_likelihood = 0
-    for i in range(len(q_fits)):
-        likelihood      = np.mean(uniform(q_fits[i], a, delta))
-        log_likelihood += np.log(likelihood)
+    # vmap over streams: each stream -> log(mean(pdf))
+    def stream_ll(q_stream):
+        pdf_vals = uniform(q_stream, a, delta)
+        return jnp.log(jnp.mean(pdf_vals))
+    
+    log_likelihoods = jax.vmap(stream_ll)(q_fits)
+    log_likelihood  = jnp.sum(log_likelihoods)
 
     return log_likelihood
 
 def dynesty_fit_uniform(dict_data, ndim=2, nlive=500):
     nthreads = os.cpu_count()
+    mp.set_start_method("spawn", force=True)
     with mp.Pool(nthreads) as poo:
         dns = dynesty.DynamicNestedSampler(log_likelihood_uniform,
                                 prior_transform_uniform,
@@ -94,6 +103,7 @@ def log_likelihood_gaussian(theta, q_fits):
 
 def dynesty_fit_gaussian(dict_data, ndim=2, nlive=500):
     nthreads = os.cpu_count()
+    mp.set_start_method("spawn", force=True)
     with mp.Pool(nthreads) as poo:
         dns = dynesty.DynamicNestedSampler(log_likelihood_gaussian,
                                 prior_transform_gaussian,
@@ -152,6 +162,7 @@ def log_likelihood_binomial(theta, q_fits):
 
 def dynesty_fit_binomial(dict_data, ndim=4, nlive=500):
     nthreads = os.cpu_count()
+    mp.set_start_method("spawn", force=True)
     with mp.Pool(nthreads) as poo:
         dns = dynesty.DynamicNestedSampler(log_likelihood_binomial,
                                 prior_transform_binomial,
@@ -227,7 +238,7 @@ if __name__ == "__main__":
     nlive = 2000
     N_streams = 100
     seeds = np.arange(N_streams)
-    path = './MockStreams'
+    path = '/data/dc824-2/MockStreams'
 
     q_true, q_fits = [], []
     for seed in seeds:
@@ -267,7 +278,7 @@ if __name__ == "__main__":
         print(f'Fitting {len(q_true)} streams with {np.mean(q_true[q_true<1.0]):.2f} +/- {np.std(q_true[q_true<1.0]):.2f} and \
                     {np.mean(q_true[q_true>=1.0]):.2f} +/- {np.std(q_true[q_true>=1.0]):.2f} instead of {true_a:.2f} +/- {true_b:.2f}')
         dict_results = dynesty_fit_binomial(q_fits, ndim=4, nlive=1000)
-    with open(os.path.join('./MockStreams', f'dict_pop_nlive{nlive}_sigma{sigma}_N{len(q_true)}_'+fit_type+f'_{true_a}-{true_b}.pkl'), 'wb') as f:
+    with open(os.path.join(path, f'dict_pop_nlive{nlive}_sigma{sigma}_N{len(q_true)}_'+fit_type+f'_{true_a}-{true_b}.pkl'), 'wb') as f:
         pickle.dump(dict_results, f)
 
     # Plots the corner plots
