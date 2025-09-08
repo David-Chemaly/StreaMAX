@@ -21,9 +21,10 @@ from utils import get_q
 #################################
 @jax.jit
 def uniform(x, a, delta):
-    return jnp.where((x >= a-delta) & (x <= a+delta), 1./delta, 0)
+    arg_nan = jnp.where(jnp.isnan(x), jnp.nan, 1.)
+    prob = jnp.where((x >= a-delta) & (x <= a+delta), 1./delta, 0)
+    return prob*arg_nan
 
-@jax.jit
 def prior_transform_uniform(p):
     a0, delta0 = p
 
@@ -32,14 +33,14 @@ def prior_transform_uniform(p):
 
     return jnp.array([a1, delta1])
 
-@jax.jit
 def log_likelihood_uniform(theta, q_fits):
     a, delta = theta
 
     # vmap over streams: each stream -> log(mean(pdf))
+    @jax.jit
     def stream_ll(q_stream):
         pdf_vals = uniform(q_stream, a, delta)
-        return jnp.log(jnp.mean(pdf_vals))
+        return jnp.log(jnp.nanmean(pdf_vals))
     
     log_likelihoods = jax.vmap(stream_ll)(q_fits)
     log_likelihood  = jnp.sum(log_likelihoods)
@@ -238,7 +239,7 @@ if __name__ == "__main__":
     nlive = 2000
     N_streams = 100
     seeds = np.arange(N_streams)
-    path = '/data/dc824-2/MockStreams'
+    path = './MockStreams'
 
     q_true, q_fits = [], []
     for seed in seeds:
@@ -264,6 +265,12 @@ if __name__ == "__main__":
     for arg in arg_take:
         new_q_fits.append(q_fits[arg])
     q_fits = new_q_fits
+
+    max_len = max(arr.shape[0] for arr in q_fits)
+    q_fits_padded = np.full((len(q_fits), max_len), np.nan, dtype=np.float32)
+    for i, arr in enumerate(q_fits):
+        q_fits_padded[i, :arr.shape[0]] = arr
+    q_fits = q_fits_padded
 
     if fit_dist == 'uniform':
         labels = [r'$a$', r'$b$']
