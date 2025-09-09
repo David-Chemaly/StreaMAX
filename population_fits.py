@@ -16,13 +16,15 @@ import dynesty.utils as dyut
 
 from utils import get_q
 
+BAD_VAL = -1e10
+
 #################################
 # Uniform Population Fits
 #################################
 @jax.jit
 def uniform(x, a, delta):
     arg_nan = jnp.where(jnp.isnan(x), jnp.nan, 1.)
-    prob = jnp.where((x >= a-delta) & (x <= a+delta), 1./delta, 0)
+    prob = jnp.where((x >= a-delta) & (x <= a+delta), 1./delta, 0.)
     return prob*arg_nan
 
 def prior_transform_uniform(p):
@@ -40,12 +42,16 @@ def log_likelihood_uniform(theta, q_fits):
     @jax.jit
     def stream_ll(q_stream):
         pdf_vals = uniform(q_stream, a, delta)
-        return jnp.log(jnp.nanmean(pdf_vals))
-    
-    log_likelihoods = jax.vmap(stream_ll)(q_fits)
-    log_likelihood  = jnp.sum(log_likelihoods)
+        return jnp.nanmean(pdf_vals)
 
-    return log_likelihood
+    log_likelihoods = jax.vmap(stream_ll)(q_fits)
+    log_likelihood = jax.lax.cond(
+        jnp.all(log_likelihoods>0.),
+        lambda x: jnp.sum(jnp.log(x)),
+        lambda x: BAD_VAL,
+        log_likelihoods
+    )
+    return float(log_likelihood)
 
 def dynesty_fit_uniform(dict_data, ndim=2, nlive=500):
     nthreads = os.cpu_count()
@@ -80,8 +86,9 @@ def dynesty_fit_uniform(dict_data, ndim=2, nlive=500):
 #################################
 # Gaussian Population Fits
 #################################
+@jax.jit
 def gaussian(x, mu, sigma):
-    return 1/np.sqrt(2*np.pi*sigma**2) * np.exp(-0.5*(x-mu)**2/sigma**2)
+    return 1/jnp.sqrt(2*jnp.pi*sigma**2) * jnp.exp(-0.5*(x-mu)**2/sigma**2)
 
 def prior_transform_gaussian(p):
     mu0, sigma0 = p
@@ -94,13 +101,21 @@ def prior_transform_gaussian(p):
 def log_likelihood_gaussian(theta, q_fits):
     mu, sigma = theta
 
-    # Log-likelihood
-    log_likelihood = 0
-    for i in range(len(q_fits)):
-        likelihood      = np.mean(gaussian(q_fits[i], mu, sigma))
-        log_likelihood += np.log(likelihood)
+    # vmap over streams: each stream -> log(mean(pdf))
+    @jax.jit
+    def stream_ll(q_stream):
+        pdf_vals = gaussian(q_stream, mu, sigma)
+        return jnp.nanmean(pdf_vals)
+    
+    log_likelihoods = jax.vmap(stream_ll)(q_fits)
+    log_likelihood = jax.lax.cond(
+        jnp.all(log_likelihoods>0.),
+        lambda x: jnp.sum(jnp.log(x)),
+        lambda x: BAD_VAL,
+        log_likelihoods
+    )
 
-    return log_likelihood
+    return float(log_likelihood)
 
 def dynesty_fit_gaussian(dict_data, ndim=2, nlive=500):
     nthreads = os.cpu_count()
@@ -135,9 +150,10 @@ def dynesty_fit_gaussian(dict_data, ndim=2, nlive=500):
 #################################
 # Binomial Population Fits
 #################################
+@jax.jit
 def binomial(x, mu1, mu2, sigma1, sigma2, prob=0.5):
-    return prob * (1/np.sqrt(2*np.pi*sigma1**2) * np.exp(-0.5*(x-mu1)**2/sigma1**2)) + \
-           (1-prob) * (1/np.sqrt(2*np.pi*sigma2**2) * np.exp(-0.5*(x-mu2)**2/sigma2**2))
+    return prob * (1/jnp.sqrt(2*jnp.pi*sigma1**2) * jnp.exp(-0.5*(x-mu1)**2/sigma1**2)) + \
+           (1-prob) * (1/jnp.sqrt(2*jnp.pi*sigma2**2) * jnp.exp(-0.5*(x-mu2)**2/sigma2**2))
 
 def prior_transform_binomial(p):
     mu1, mu2, sigma1, sigma2 = p
@@ -153,13 +169,21 @@ def prior_transform_binomial(p):
 def log_likelihood_binomial(theta, q_fits):
     mu1, mu2, sigma1, sigma2 = theta
 
-    # Log-likelihood
-    log_likelihood = 0
-    for i in range(len(q_fits)):
-        likelihood      = np.mean(binomial(q_fits[i], mu1, mu2, sigma1, sigma2))
-        log_likelihood += np.log(likelihood)
+    # vmap over streams: each stream -> log(mean(pdf))
+    @jax.jit
+    def stream_ll(q_stream):
+        pdf_vals = binomial(q_stream, mu1, mu2, sigma1, sigma2)
+        return jnp.nanmean(pdf_vals)
+    
+    log_likelihoods = jax.vmap(stream_ll)(q_fits)
+    log_likelihood = jax.lax.cond(
+        jnp.all(log_likelihoods>0.),
+        lambda x: jnp.sum(jnp.log(x)),
+        lambda x: BAD_VAL,
+        log_likelihoods
+    )
 
-    return log_likelihood
+    return float(log_likelihood)
 
 def dynesty_fit_binomial(dict_data, ndim=4, nlive=500):
     nthreads = os.cpu_count()
