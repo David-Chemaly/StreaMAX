@@ -146,6 +146,10 @@ def get_q(dirx, diry, dirz):
     return q
 
 @jax.jit
+def get_q_proj(q, z):
+    return jnp.sqrt(q**2 + (1-q**2)*z**2)
+
+@jax.jit
 def unwrap_stream_from_unwrapped_orbit(theta_sat, theta_stream, n_particles=10000, n_steps=500):
     theta_count = jnp.floor_divide(theta_sat, 2 * jnp.pi)
 
