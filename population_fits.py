@@ -18,14 +18,10 @@ from utils import get_q
 
 BAD_VAL = -1e10
 
-#################################
-# Uniform Population Fits
-#################################
-@jax.jit
+### Uniform ###
 def uniform(x, a, delta):
-    arg_nan = jnp.where(jnp.isnan(x), jnp.nan, 1.)
-    prob = jnp.where((x >= a-delta) & (x <= a+delta), 1./delta, 0.)
-    return prob*arg_nan
+    prob = np.where((x >= a-delta) & (x <= a+delta), 1./delta, 0.)
+    return prob
 
 def prior_transform_uniform(p):
     a0, delta0 = p
@@ -33,60 +29,9 @@ def prior_transform_uniform(p):
     a1 = 2*a0
     delta1 = 2*delta0
 
-    return jnp.array([a1, delta1])
+    return [a1, delta1]
 
-def log_likelihood_uniform(theta, q_fits):
-    a, delta = theta
-
-    # vmap over streams: each stream -> log(mean(pdf))
-    @jax.jit
-    def stream_ll(q_stream):
-        pdf_vals = uniform(q_stream, a, delta)
-        return jnp.nanmean(pdf_vals)
-
-    log_likelihoods = jax.vmap(stream_ll)(q_fits)
-    log_likelihood = jax.lax.cond(
-        jnp.all(log_likelihoods>0.),
-        lambda x: jnp.sum(jnp.log(x)),
-        lambda x: BAD_VAL,
-        log_likelihoods
-    )
-    return float(log_likelihood)
-
-def dynesty_fit_uniform(dict_data, ndim=2, nlive=500):
-    nthreads = os.cpu_count()
-    mp.set_start_method("spawn", force=True)
-    with mp.Pool(nthreads) as poo:
-        dns = dynesty.DynamicNestedSampler(log_likelihood_uniform,
-                                prior_transform_uniform,
-                                ndim,
-                                logl_args=(dict_data, ),
-                                nlive=nlive,
-                                sample='unif',  
-                                pool=poo,
-                                queue_size=nthreads * 2)
-        dns.run_nested(n_effective=10000)
-
-    res   = dns.results
-    inds  = np.arange(len(res.samples))
-    inds  = dyut.resample_equal(inds, weights=np.exp(res.logwt - res.logz[-1]))
-    samps = res.samples[inds]
-    logl  = res.logl[inds]
-
-    dns_results = {
-                    'dns': dns,
-                    'samps': samps,
-                    'logl': logl,
-                    'logz': res.logz,
-                    'logzerr': res.logzerr,
-                }
-
-    return dns_results
-
-#################################
-# Gaussian Population Fits
-#################################
-@jax.jit
+### Gaussian ###
 def gaussian(x, mu, sigma):
     return 1/jnp.sqrt(2*jnp.pi*sigma**2) * jnp.exp(-0.5*(x-mu)**2/sigma**2)
 
@@ -98,62 +43,10 @@ def prior_transform_gaussian(p):
 
     return [mu1, sigma1]
 
-def log_likelihood_gaussian(theta, q_fits):
-    mu, sigma = theta
-
-    # vmap over streams: each stream -> log(mean(pdf))
-    @jax.jit
-    def stream_ll(q_stream):
-        pdf_vals = gaussian(q_stream, mu, sigma)
-        return jnp.nanmean(pdf_vals)
-    
-    log_likelihoods = jax.vmap(stream_ll)(q_fits)
-    log_likelihood = jax.lax.cond(
-        jnp.all(log_likelihoods>0.),
-        lambda x: jnp.sum(jnp.log(x)),
-        lambda x: BAD_VAL,
-        log_likelihoods
-    )
-
-    return float(log_likelihood)
-
-def dynesty_fit_gaussian(dict_data, ndim=2, nlive=500):
-    nthreads = os.cpu_count()
-    mp.set_start_method("spawn", force=True)
-    with mp.Pool(nthreads) as poo:
-        dns = dynesty.DynamicNestedSampler(log_likelihood_gaussian,
-                                prior_transform_gaussian,
-                                ndim,
-                                logl_args=(dict_data, ),
-                                nlive=nlive,
-                                sample='unif',  
-                                pool=poo,
-                                queue_size=nthreads * 2)
-        dns.run_nested(n_effective=10000)
-
-    res   = dns.results
-    inds  = np.arange(len(res.samples))
-    inds  = dyut.resample_equal(inds, weights=np.exp(res.logwt - res.logz[-1]))
-    samps = res.samples[inds]
-    logl  = res.logl[inds]
-
-    dns_results = {
-                    'dns': dns,
-                    'samps': samps,
-                    'logl': logl,
-                    'logz': res.logz,
-                    'logzerr': res.logzerr,
-                }
-
-    return dns_results
-
-#################################
-# Binomial Population Fits
-#################################
-@jax.jit
+### Binomial ###
 def binomial(x, mu1, mu2, sigma1, sigma2, prob=0.5):
-    return prob * (1/jnp.sqrt(2*jnp.pi*sigma1**2) * jnp.exp(-0.5*(x-mu1)**2/sigma1**2)) + \
-           (1-prob) * (1/jnp.sqrt(2*jnp.pi*sigma2**2) * jnp.exp(-0.5*(x-mu2)**2/sigma2**2))
+    return prob * (1/np.sqrt(2*np.pi*sigma1**2) * np.exp(-0.5*(x-mu1)**2/sigma1**2)) + \
+           (1-prob) * (1/np.sqrt(2*np.pi*sigma2**2) * np.exp(-0.5*(x-mu2)**2/sigma2**2))
 
 def prior_transform_binomial(p):
     mu1, mu2, sigma1, sigma2 = p
@@ -162,37 +55,44 @@ def prior_transform_binomial(p):
     sigma1 = 2*sigma1
     mu2    = mu2+1
     sigma2 = 2*sigma2
-    # prob   = 1 - prob
 
     return [mu1, mu2, sigma1, sigma2]
 
-def log_likelihood_binomial(theta, q_fits):
-    mu1, mu2, sigma1, sigma2 = theta
+### Likelihood ###
+def log_likelihood(theta, dict_data, pop_type='uniform'):
+    if pop_type == 'uniform':
+        pop_dist = uniform
+    elif pop_type == 'gaussian':
+        pop_dist = gaussian
+    elif pop_type == 'binomial':
+        pop_dist = binomial
 
-    # vmap over streams: each stream -> log(mean(pdf))
-    @jax.jit
-    def stream_ll(q_stream):
-        pdf_vals = binomial(q_stream, mu1, mu2, sigma1, sigma2)
-        return jnp.nanmean(pdf_vals)
-    
-    log_likelihoods = jax.vmap(stream_ll)(q_fits)
-    log_likelihood = jax.lax.cond(
-        jnp.all(log_likelihoods>0.),
-        lambda x: jnp.sum(jnp.log(x)),
-        lambda x: BAD_VAL,
-        log_likelihoods
-    )
+    # Log-likelihood
+    log_likelihood = 0
+    for i in range(len(dict_data)):
+        likelihood      = np.mean(pop_dist(dict_data[i], *theta))
+        if likelihood <= 0:
+            return BAD_VAL
+        log_likelihood += np.log(likelihood)
 
-    return float(log_likelihood)
+    return log_likelihood
 
-def dynesty_fit_binomial(dict_data, ndim=4, nlive=500):
+### Dynesty Fit ###
+def dynesty_fit(dict_data, ndim=2, nlive=500, pop_type='uniform'):
+    if pop_type == 'uniform':
+        prior_transform = prior_transform_uniform
+    elif pop_type == 'gaussian':
+        prior_transform = prior_transform_gaussian
+    elif pop_type == 'binomial':
+        prior_transform = prior_transform_binomial
+
     nthreads = os.cpu_count()
     mp.set_start_method("spawn", force=True)
     with mp.Pool(nthreads) as poo:
-        dns = dynesty.DynamicNestedSampler(log_likelihood_binomial,
-                                prior_transform_binomial,
+        dns = dynesty.DynamicNestedSampler(log_likelihood,
+                                prior_transform,
                                 ndim,
-                                logl_args=(dict_data, ),
+                                logl_args=(dict_data, pop_type),
                                 nlive=nlive,
                                 sample='unif',  
                                 pool=poo,
@@ -215,6 +115,7 @@ def dynesty_fit_binomial(dict_data, ndim=4, nlive=500):
 
     return dns_results
 
+### Sampling ###
 def subset_as_uniform(u, a, delta, N=None):
     accept = np.where((u >= a - delta) & (u <= a + delta))[0]
     if N is not None:
@@ -249,15 +150,18 @@ def subset_as_binomial(u, mu1=0.8, mu2=1.2, sigma1=0.1, sigma2=0.1, N=None, prob
     accept = np.where(np.random.rand(len(u)) < p)[0]
     return accept
 
+
 if __name__ == "__main__":
-    true_dist = 'uniform'
+    true_dist = 'gaussian'
     true_a = 1.0
-    true_b = 0.5
+    true_b = 0.1
     true_c = 0.
     true_d = 0.
-    fit_dist = 'uniform'
-    fit_type = 'UtoU'
+    fit_dist = 'gaussian'
+    fit_type = 'GtoG'
     N_pop = None
+    ndim = 2
+    nlive = 500
 
     sigma = 2
     nlive = 2000
@@ -290,25 +194,18 @@ if __name__ == "__main__":
         new_q_fits.append(q_fits[arg])
     q_fits = new_q_fits
 
-    max_len = max(arr.shape[0] for arr in q_fits)
-    q_fits_padded = np.full((len(q_fits), max_len), np.nan, dtype=np.float32)
-    for i, arr in enumerate(q_fits):
-        q_fits_padded[i, :arr.shape[0]] = arr
-    q_fits = q_fits_padded
-
     if fit_dist == 'uniform':
         labels = [r'$a$', r'$b$']
         print(f'Fitting {len(q_true)} streams with [{np.mean(q_true):.2f}, {abs(np.max(q_true)-np.min(q_true))/2:.2f}]')
-        dict_results = dynesty_fit_uniform(q_fits, ndim=2, nlive=500)
     elif fit_dist == 'gaussian':
         labels = [r'$\mu$', r'$\sigma$']
         print(f'Fitting {len(q_true)} streams with {np.mean(q_true):.2f} +/- {np.std(q_true):.2f}')
-        dict_results = dynesty_fit_gaussian(q_fits, ndim=2, nlive=500)
     elif fit_dist == 'binomial':
         labels = [r'$\mu_1$', r'$\mu_2$', r'$\sigma_1$', r'$\sigma_2$']
         print(f'Fitting {len(q_true)} streams with {np.mean(q_true[q_true<1.0]):.2f} +/- {np.std(q_true[q_true<1.0]):.2f} and \
                     {np.mean(q_true[q_true>=1.0]):.2f} +/- {np.std(q_true[q_true>=1.0]):.2f} instead of {true_a:.2f} +/- {true_b:.2f}')
-        dict_results = dynesty_fit_binomial(q_fits, ndim=4, nlive=1000)
+
+    dict_results = dynesty_fit(q_fits, ndim=ndim, nlive=nlive, pop_type=fit_dist)
     with open(os.path.join(path, f'dict_pop_nlive{nlive}_sigma{sigma}_N{len(q_true)}_'+fit_type+f'_{true_a}-{true_b}.pkl'), 'wb') as f:
         pickle.dump(dict_results, f)
 
