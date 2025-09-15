@@ -49,14 +49,15 @@ def binomial(x, mu1, mu2, sigma1, sigma2, prob=0.5):
            (1-prob) * (1/np.sqrt(2*np.pi*sigma2**2) * np.exp(-0.5*(x-mu2)**2/sigma2**2))
 
 def prior_transform_binomial(p):
-    mu1, mu2, sigma1, sigma2 = p
+    mu1, mu2, sigma1, sigma2, prob = p
 
     mu1    = mu1
     sigma1 = 2*sigma1
     mu2    = mu2+1
     sigma2 = 2*sigma2
+    prob   = prob
 
-    return [mu1, mu2, sigma1, sigma2]
+    return [mu1, mu2, sigma1, sigma2, prob]
 
 ### Likelihood ###
 def log_likelihood(theta, dict_data, pop_type='uniform'):
@@ -116,25 +117,28 @@ def dynesty_fit(dict_data, ndim=2, nlive=500, pop_type='uniform'):
     return dns_results
 
 ### Sampling ###
-def subset_as_uniform(u, a, delta, N=None):
+def subset_as_uniform(u, a, delta, seed=42, N=None):
+    rng = np.random.default_rng(seed)
     accept = np.where((u >= a - delta) & (u <= a + delta))[0]
     if N is not None:
-        accept = np.random.choice(accept, size=N, replace=False)
+        accept = rng.choice(accept, size=N, replace=False)
     return accept
 
-def subset_as_gaussian(u, mu, sigma, N=None):
+def subset_as_gaussian(u, mu, sigma, seed=42, N=None):
+    rng = np.random.default_rng(seed)
     w = norm.pdf(u, loc=mu, scale=sigma)
     p = w / w.max()
     if N is not None:
         accept = []
         while len(accept) != N:
-            accept = np.where(np.random.rand(len(u)) < p)[0]
+            accept = np.where(rng.random(len(u)) < p)[0]
         return accept
 
-    accept = np.where(np.random.rand(len(u)) < p)[0]
+    accept = np.where(rng.random(len(u)) < p)[0]
     return accept
 
-def subset_as_binomial(u, mu1=0.8, mu2=1.2, sigma1=0.1, sigma2=0.1, N=None, prob=0.5):
+def subset_as_binomial(u, mu1=0.8, mu2=1.2, sigma1=0.1, sigma2=0.1, seed=42, N=None, prob=0.5):
+    rng = np.random.default_rng(seed)
     # component densities
     w1 = norm.pdf(u, mu1, sigma1)
     w2 = norm.pdf(u, mu2, sigma2)
@@ -144,10 +148,10 @@ def subset_as_binomial(u, mu1=0.8, mu2=1.2, sigma1=0.1, sigma2=0.1, N=None, prob
     if N is not None:
         accept = []
         while len(accept) != N:
-            accept = np.where(np.random.rand(len(u)) < p)[0]
+            accept = np.where(rng.random(len(u)) < p)[0]
         return accept
 
-    accept = np.where(np.random.rand(len(u)) < p)[0]
+    accept = np.where(rng.random(len(u)) < p)[0]
     return accept
 
 
@@ -157,9 +161,10 @@ if __name__ == "__main__":
     true_b = 0.1
     true_c = 0.
     true_d = 0.
-    fit_dist = 'gaussian'
-    fit_type = 'GtoG'
-    N_pop = None
+    fit_dist = 'binomial'
+    fit_type = 'BtoG'
+    N_pop = 30
+    seed = 1
     ndim = 2
     nlive = 500
 
@@ -182,11 +187,11 @@ if __name__ == "__main__":
     q_true = np.array(q_true)
 
     if true_dist == 'uniform':
-        arg_take = subset_as_uniform(q_true, true_a, true_b, N=N_pop)
+        arg_take = subset_as_uniform(q_true, true_a, true_b, seed=seed, N=N_pop)
     elif true_dist =='gaussian':
-        arg_take = subset_as_gaussian(q_true, true_a, true_b, N=N_pop)
+        arg_take = subset_as_gaussian(q_true, true_a, true_b, seed=seed, N=N_pop)
     elif true_dist == 'binomial':
-        arg_take = subset_as_binomial(q_true, true_a, true_b, true_c, true_d, N=N_pop)
+        arg_take = subset_as_binomial(q_true, true_a, true_b, true_c, true_d, seed=seed, N=N_pop)
 
     q_true = q_true[arg_take]
     new_q_fits = []
