@@ -52,7 +52,7 @@ if __name__ == "__main__":
     ndim  = 13
     nlive = 2000
 
-    PATH_DATA = f'/data/dc824-2/SGA_streams'
+    PATH_DATA = f'/data/dc824-2/SGA_Streams'
     names = np.loadtxt(f'{PATH_DATA}/names.txt', dtype=str)
 
     name = names[0]
