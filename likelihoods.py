@@ -18,7 +18,7 @@ def data_log_likelihood_spray_base(params, dict_data, seed=13):
     params = np.concatenate([params[:2], [q], params[2:8], [0.], params[8:], [1.]])
 
     theta_stream, xv_stream, _, _ = generate_stream_spray_base(params,  seed)
-    _, _, r_bin, _ = get_track_from_data(theta_stream, xv_stream[:, 0], xv_stream[:, 1], dict_data['theta'])
+    _, r_bin, _ = get_track_from_data(theta_stream, xv_stream[:, 0], xv_stream[:, 1], dict_data['theta'])
     
 
     n_bad    = np.sum(np.isnan(r_bin))

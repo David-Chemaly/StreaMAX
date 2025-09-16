@@ -109,7 +109,7 @@ def get_track(theta_stream, x_stream, y_stream, n_bins=36):
 
     return count, theta_bin, r_bin, w_bin
 
-@functools.partial(jax.jit, static_argnames=['theta_data'])
+@jax.jit
 def get_track_from_data(theta_stream, x_stream, y_stream, theta_data):
     r_stream = jnp.sqrt(x_stream**2 + y_stream**2)
     delta = jnp.diff(theta_data).mean()/2
