@@ -55,9 +55,9 @@ if __name__ == "__main__":
     PATH_DATA = f'/data/dc824-2/SGA_Streams'
     names = np.loadtxt(f'{PATH_DATA}/names.txt', dtype=str)
 
-    for name in tqdm(names[2:], leave=True):
-        if not os.path.exists(os.path.join(PATH_DATA,  f'running_nlive{nlive}_fixedProgcenter.txt')):
-            np.savetxt(os.path.join(PATH_DATA,  f'running_nlive{nlive}_fixedProgcenter.txt'), [1])
+    for name in tqdm(names[3:], leave=True):
+        if not os.path.exists(f'{PATH_DATA}/{name}/running_nlive{nlive}_fixedProgcenter.txt'):
+            np.savetxt(f'{PATH_DATA}/{name}/running_nlive{nlive}_fixedProgcenter.txt', [1])
 
             with open(f"{PATH_DATA}/{name}/dict_track.pkl", "rb") as f:
                 dict_data = pickle.load(f)
