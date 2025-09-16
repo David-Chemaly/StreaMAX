@@ -116,7 +116,9 @@ def get_track_from_data(theta_stream, x_stream, y_stream, theta_data):
     lefts  = theta_data - delta
     rights =  theta_data + delta
     inside = (theta_stream[:, None] >= lefts[None, :]) & (theta_stream[:, None] < rights[None, :])
-    bin_indices = inside.argmax(axis=1)
+    has_bin = inside.any(axis=1)
+    idx = inside.argmax(axis=1)
+    bin_indices = jnp.where(has_bin, idx, -1)
 
     # Step 2: Per-bin median computation
     def per_bin_median(bin_idx, bin_ids, r):
@@ -126,7 +128,7 @@ def get_track_from_data(theta_stream, x_stream, y_stream, theta_data):
 
         return count, jnp.nanmedian(r_in_bin), (jnp.nanpercentile(r_in_bin, 16) - jnp.nanpercentile(r_in_bin, 84)) / 2
     # Step 3: Vectorize
-    all_bins = jnp.arange(1, len(theta_data) + 1)
+    all_bins = jnp.arange(0, len(theta_data))
     count, r_bin, w_bin = jax.vmap(per_bin_median, in_axes=(0, None, None))(all_bins, bin_indices, r_stream)
 
     return count, r_bin, w_bin

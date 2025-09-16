@@ -82,7 +82,6 @@ if __name__ == "__main__":
     q_samps = get_q(dict_results['samps'][:, 2], dict_results['samps'][:, 3], dict_results['samps'][:, 4])
     plt.figure(figsize=(8, 6))
     plt.hist(q_samps, bins=30, density=True, alpha=0.7, color='blue')
-    plt.axvline(dict_data['params'][2], color='red', linestyle='--', label='True Value')
     plt.xlabel('Halo Flattening')
     plt.ylabel('Density')
     plt.legend()
