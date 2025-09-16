@@ -62,6 +62,7 @@ if __name__ == "__main__":
     # This sets the progenitor in the middle of the stream
     dict_data['theta'] -= np.median(dict_data['theta'])
 
+    print(f'Fitting {name} with nlive={nlive} and fixed progenitor at center')
     dict_results = dynesty_fit(dict_data, ndim=ndim, nlive=nlive)
     with open(f'{PATH_DATA}/{name}/dict_results_nlive{nlive}_fixedProgcenter.pkl', 'wb') as f:
         pickle.dump(dict_results, f)
