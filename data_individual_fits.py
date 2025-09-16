@@ -7,7 +7,7 @@ import dynesty
 import dynesty.utils as dyut
 
 from spray import generate_stream_spray
-from likelihoods import log_likelihood_spray_base
+from likelihoods import log_likelihood_spray_base, data_log_likelihood_spray_base
 from priors import prior_transform
 from utils import get_q, get_track
 
@@ -21,7 +21,7 @@ def dynesty_fit(dict_data, ndim=14, nlive=2000, sigma=2):
     nthreads = os.cpu_count()
     mp.set_start_method("spawn", force=True)
     with mp.Pool(nthreads) as poo:
-        dns = dynesty.DynamicNestedSampler(log_likelihood_spray_base,
+        dns = dynesty.DynamicNestedSampler(data_log_likelihood_spray_base,
                                 prior_transform,
                                 ndim,
                                 logl_args=(dict_data, sigma),
