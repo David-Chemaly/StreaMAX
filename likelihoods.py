@@ -5,13 +5,34 @@ import numpy as np
 import matplotlib.pyplot as plt
 plt.rcParams.update({'font.size': 18})
 
-from utils import get_q, get_track, inference_first
+from utils import get_q, get_track, inference_first, get_track_from_data
 from spray_base import generate_stream_spray_base
 from spray import generate_stream_spray
 from first import generate_stream_first
 from streak import generate_stream_streak
 
 BAD_VAL = -1e100
+
+def data_log_likelihood_spray_base(params, dict_data, seed=13):
+    q      = get_q(params[2], params[3], params[4])
+    params = np.concatenate([params[:2], [q], params[2:8], [0.], params[8:], [1.]])
+
+    theta_stream, xv_stream, _, _ = generate_stream_spray_base(params,  seed)
+    _, _, r_bin, _ = get_track_from_data(theta_stream, xv_stream[:, 0], xv_stream[:, 1], dict_data['theta'])
+    
+
+    n_bad    = np.sum(np.isnan(r_bin))
+
+    if np.all(np.isnan(r_bin)):
+        logl = BAD_VAL * len(r_bin)
+
+    elif n_bad == 0:
+        logl  = -.5 * np.sum( ( (r_bin - dict_data['r']) / dict_data['r_err'] )**2 )
+
+    else:
+        logl = BAD_VAL * n_bad
+
+    return logl
 
 def log_likelihood_spray_base(params, dict_data, seed=13, min_count=100):
     q      = get_q(params[2], params[3], params[4])

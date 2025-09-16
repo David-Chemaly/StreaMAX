@@ -109,6 +109,28 @@ def get_track(theta_stream, x_stream, y_stream, n_bins=36):
 
     return count, theta_bin, r_bin, w_bin
 
+@functools.partial(jax.jit, static_argnames=['theta_data'])
+def get_track_from_data(theta_stream, x_stream, y_stream, theta_data):
+    r_stream = jnp.sqrt(x_stream**2 + y_stream**2)
+    delta = jnp.diff(theta_data).mean()/2
+    lefts  = theta_data - delta
+    rights =  theta_data + delta
+    inside = (theta_stream[:, None] >= lefts[None, :]) & (theta_stream[:, None] < rights[None, :])
+    bin_indices = inside.argmax(axis=1)
+
+    # Step 2: Per-bin median computation
+    def per_bin_median(bin_idx, bin_ids, r):
+        mask     = bin_ids == bin_idx
+        count    = jnp.sum(mask)
+        r_in_bin = jnp.where(mask, r, jnp.nan)
+
+        return count, jnp.nanmedian(r_in_bin), (jnp.nanpercentile(r_in_bin, 16) - jnp.nanpercentile(r_in_bin, 84)) / 2
+    # Step 3: Vectorize
+    all_bins = jnp.arange(1, len(theta_data) + 1)
+    count, r_bin, w_bin = jax.vmap(per_bin_median, in_axes=(0, None, None))(all_bins, bin_indices, r_stream)
+
+    return count, r_bin, w_bin
+
 @jax.jit
 def get_track_weights(theta_stream, x_stream, y_stream, weights, n_bins=36):
     # Step 1: Create bin edges and assign particles to bins

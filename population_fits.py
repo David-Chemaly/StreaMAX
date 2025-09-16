@@ -157,7 +157,7 @@ def subset_as_binomial(u, mu1=0.8, mu2=1.2, sigma1=0.1, sigma2=0.1, seed=42, N=N
 
 if __name__ == "__main__":
     true_dist = 'gaussian'
-    true_a = 1.0
+    true_a = 0.8
     true_b = 0.1
     true_c = 0.
     true_d = 0.
@@ -165,8 +165,8 @@ if __name__ == "__main__":
     fit_type = 'BtoG'
     N_pop = 30
     seed = 1
-    ndim = 2
-    nlive = 500
+    ndim = 5
+    nlive = 1000
 
     sigma = 2
     nlive = 2000
