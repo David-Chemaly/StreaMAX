@@ -157,7 +157,7 @@ def subset_as_binomial(u, mu1=0.8, mu2=1.2, sigma1=0.1, sigma2=0.1, seed=42, N=N
 
 if __name__ == "__main__":
     true_dist = 'gaussian'
-    true_a = 0.8
+    true_a = 1.0
     true_b = 0.1
     true_c = 0.
     true_d = 0.
@@ -172,7 +172,7 @@ if __name__ == "__main__":
     nlive = 2000
     N_streams = 100
     seeds = np.arange(N_streams)
-    path = './MockStreams'
+    path = '/data/dc824-2/MockStreams'
 
     q_true, q_fits = [], []
     for seed in seeds:
@@ -201,13 +201,13 @@ if __name__ == "__main__":
 
     if fit_dist == 'uniform':
         labels = [r'$a$', r'$b$']
-        print(f'Fitting {len(q_true)} streams with [{np.mean(q_true):.2f}, {abs(np.max(q_true)-np.min(q_true))/2:.2f}]')
+        print(f'Fitting {len(q_true)} using seed {sample_seed} streams with [{np.mean(q_true):.2f}, {abs(np.max(q_true)-np.min(q_true))/2:.2f}]')
     elif fit_dist == 'gaussian':
         labels = [r'$\mu$', r'$\sigma$']
-        print(f'Fitting {len(q_true)} streams with {np.mean(q_true):.2f} +/- {np.std(q_true):.2f}')
+        print(f'Fitting {len(q_true)} using seed {sample_seed} streams with {np.mean(q_true):.2f} +/- {np.std(q_true):.2f}')
     elif fit_dist == 'binomial':
         labels = [r'$\mu_1$', r'$\mu_2$', r'$\sigma_1$', r'$\sigma_2$']
-        print(f'Fitting {len(q_true)} streams with {np.mean(q_true[q_true<1.0]):.2f} +/- {np.std(q_true[q_true<1.0]):.2f} and \
+        print(f'Fitting {len(q_true)} using seed {sample_seed} streams with {np.mean(q_true[q_true<1.0]):.2f} +/- {np.std(q_true[q_true<1.0]):.2f} and \
                     {np.mean(q_true[q_true>=1.0]):.2f} +/- {np.std(q_true[q_true>=1.0]):.2f} instead of {true_a:.2f} +/- {true_b:.2f}')
 
     dict_results = dynesty_fit(q_fits, ndim=ndim, nlive=nlive, pop_type=fit_dist)
