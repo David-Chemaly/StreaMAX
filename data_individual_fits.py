@@ -9,7 +9,7 @@ import dynesty.utils as dyut
 from spray import generate_stream_spray
 from likelihoods import log_likelihood_spray_base, data_log_likelihood_spray_base
 from priors import prior_transform
-from utils import get_q, get_track
+from utils import get_q, get_track, get_track_from_data
 
 import corner
 
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     PATH_DATA = f'/data/dc824-2/SGA_Streams'
     names = np.loadtxt(f'{PATH_DATA}/names.txt', dtype=str)
 
-    for name in tqdm(names[3:], leave=True):
+    for name in tqdm(names, leave=True):
         if not os.path.exists(f'{PATH_DATA}/{name}/running_nlive{nlive}_fixedProgcenter.txt'):
             np.savetxt(f'{PATH_DATA}/{name}/running_nlive{nlive}_fixedProgcenter.txt', [1])
 
@@ -87,7 +87,6 @@ if __name__ == "__main__":
             plt.hist(q_samps, bins=30, density=True, alpha=0.7, color='blue')
             plt.xlabel('Halo Flattening')
             plt.ylabel('Density')
-            plt.legend()
             plt.tight_layout()
             plt.savefig(f'{PATH_DATA}/{name}/q_posterior_nlive{nlive}_fixedProgcenter.pdf')
             plt.close()
@@ -104,13 +103,13 @@ if __name__ == "__main__":
             np.savetxt(f'{PATH_DATA}/{name}/best_params_nlive{nlive}_fixedProgcenter.txt', best_params)
 
             theta_stream, xv_stream, theta_sat, xv_sat = generate_stream_spray(best_params, seed=111)
-            _, theta_bin, r_bin, _ = get_track(theta_stream, xv_stream[:, 0], xv_stream[:, 1])
-            x_bin = r_bin * np.cos(theta_bin)
-            y_bin = r_bin * np.sin(theta_bin)
+            _, r_bin, _ = get_track_from_data(theta_stream, xv_stream[:, 0], xv_stream[:, 1], dict_data['theta'])
+            x_bin = r_bin * np.cos(dict_data['theta'])
+            y_bin = r_bin * np.sin(dict_data['theta'])
 
             plt.scatter(xv_stream[:, 0], xv_stream[:, 1], s=0.1, cmap='seismic', c=theta_stream, vmin=-2*np.pi, vmax=2*np.pi)
             plt.scatter(x_bin, y_bin, c='lime')
-            plt.scatter(dict_data['x'], dict_data['y'], c='red')
+            plt.scatter(dict_data['r']*np.cos(dict_data['theta']), dict_data['r']*np.sin(dict_data['theta']), c='red')
             plt.axvline(0, color='k', linestyle='--', lw=1, c='gray')
             plt.axhline(0, color='k', linestyle='--', lw=1, c='gray')
             plt.axis('equal')
@@ -118,7 +117,7 @@ if __name__ == "__main__":
             plt.subplot(1, 2, 2)
             r_stream = np.sqrt(xv_stream[:, 0]**2 + xv_stream[:, 1]**2)
             plt.scatter(theta_stream, r_stream, s=0.1, cmap='seismic', c=theta_stream, vmin=-2*np.pi, vmax=2*np.pi, label='Stream Model')
-            plt.scatter(theta_bin, r_bin, c='lime', label='Medians')
+            plt.scatter(dict_data['theta'], r_bin, c='lime', label='Medians')
             plt.colorbar(label='Angle (rad)')
             plt.scatter(dict_data['theta'], dict_data['r'], c='red', label='Data')
             plt.xlabel('Angle (rad)')
