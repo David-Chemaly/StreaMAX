@@ -161,12 +161,12 @@ if __name__ == "__main__":
     true_b = 0.1
     true_c = 0.
     true_d = 0.
-    fit_dist = 'binomial'
-    fit_type = 'BtoG'
+    fit_dist = 'gaussian'
+    fit_type = 'GtoG'
     N_pop = 30
-    seed = 1
-    ndim = 5
-    nlive = 1000
+    sample_seed = 1
+    ndim = 2
+    nlive = 500
 
     sigma = 2
     nlive = 2000
@@ -187,11 +187,11 @@ if __name__ == "__main__":
     q_true = np.array(q_true)
 
     if true_dist == 'uniform':
-        arg_take = subset_as_uniform(q_true, true_a, true_b, seed=seed, N=N_pop)
+        arg_take = subset_as_uniform(q_true, true_a, true_b, seed=sample_seed, N=N_pop)
     elif true_dist =='gaussian':
-        arg_take = subset_as_gaussian(q_true, true_a, true_b, seed=seed, N=N_pop)
+        arg_take = subset_as_gaussian(q_true, true_a, true_b, seed=sample_seed, N=N_pop)
     elif true_dist == 'binomial':
-        arg_take = subset_as_binomial(q_true, true_a, true_b, true_c, true_d, seed=seed, N=N_pop)
+        arg_take = subset_as_binomial(q_true, true_a, true_b, true_c, true_d, seed=sample_seed, N=N_pop)
 
     q_true = q_true[arg_take]
     new_q_fits = []
@@ -211,7 +211,7 @@ if __name__ == "__main__":
                     {np.mean(q_true[q_true>=1.0]):.2f} +/- {np.std(q_true[q_true>=1.0]):.2f} instead of {true_a:.2f} +/- {true_b:.2f}')
 
     dict_results = dynesty_fit(q_fits, ndim=ndim, nlive=nlive, pop_type=fit_dist)
-    with open(os.path.join(path, f'dict_pop_nlive{nlive}_sigma{sigma}_N{len(q_true)}_'+fit_type+f'_{true_a}-{true_b}.pkl'), 'wb') as f:
+    with open(os.path.join(path, f'dict_pop_nlive{nlive}_sigma{sigma}_N{len(q_true)}_'+fit_type+f'_{true_a}-{true_b}_seed{sample_seed}.pkl'), 'wb') as f:
         pickle.dump(dict_results, f)
 
     # Plots the corner plots
@@ -223,5 +223,5 @@ if __name__ == "__main__":
             title_kwargs={"fontsize": 16},
             truths=[true_a, true_b], 
             truth_color='red')
-    figure.savefig(os.path.join(path, f'corner_plot_nlive{nlive}_sigma{sigma}_N{len(q_true)}_'+fit_type+f'_{true_a}-{true_b}.pdf'))
+    figure.savefig(os.path.join(path, f'corner_plot_nlive{nlive}_sigma{sigma}_N{len(q_true)}_'+fit_type+f'_{true_a}-{true_b}_seed{sample_seed}.pdf'))
     plt.close(figure)
