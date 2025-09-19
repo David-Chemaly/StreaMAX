@@ -182,7 +182,7 @@ if __name__ == "__main__":
         print(f'Fitting {len(q_fits)} streams')
 
     dict_results = dynesty_fit(q_fits, ndim=ndim, nlive=nlive, pop_type=fit_dist)
-    with open(f'{PATH_DATA}/{name}/dict_pop_nlive{nlive}_N{len(q_fits)}_'+fit_dist+'.pkl', 'wb') as f:
+    with open(f'{PATH_DATA}/dict_pop_nlive{nlive}_N{len(q_fits)}_'+fit_dist+'.pkl', 'wb') as f:
         pickle.dump(dict_results, f)
 
     # Plots the corner plots
@@ -192,5 +192,5 @@ if __name__ == "__main__":
             quantiles=[0.16, 0.5, 0.84],
             show_titles=True, 
             title_kwargs={"fontsize": 16})
-    figure.savefig(f'{PATH_DATA}/{name}/corner_plot_nlive{nlive}_N{len(q_fits)}_'+fit_dist+'.pdf')
+    figure.savefig(f'{PATH_DATA}/corner_plot_nlive{nlive}_N{len(q_fits)}_'+fit_dist+'.pdf')
     plt.close(figure)
