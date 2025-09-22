@@ -54,7 +54,7 @@ if __name__ == "__main__":
     PATH_DATA = f'/data/dc824-2/SGA_Streams'
     names = np.loadtxt(f'{PATH_DATA}/names.txt', dtype=str)
 
-    for name in tqdm(names[:1], leave=True):
+    for name in tqdm(names[1:2], leave=True):
         if not os.path.exists(f'{PATH_DATA}/{name}/Plots_nlive{nlive}_fixedProgcenter_regular'):
             new_PATH_DATA = f'{PATH_DATA}/{name}/Plots_nlive{nlive}_fixedProgcenter_regular'
             os.makedirs(new_PATH_DATA, exist_ok=True)
