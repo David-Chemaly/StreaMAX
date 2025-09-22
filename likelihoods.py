@@ -11,7 +11,7 @@ from spray import generate_stream_spray
 from first import generate_stream_first
 from streak import generate_stream_streak
 
-BAD_VAL = -1e100
+BAD_VAL = -1e10
 
 def data_log_likelihood_spray_base(params, dict_data, seed=13, N_min=3, q_min=0.5, q_max=2.0):
     q      = get_q(params[2], params[3], params[4], q_min=q_min, q_max=q_max)
@@ -38,7 +38,7 @@ def data_log_likelihood_spray_base(params, dict_data, seed=13, N_min=3, q_min=0.
     return logl
 
 def data_log_likelihood_spray_base_regular(params, dict_data, seed=13, N_min=3):
-    params = np.concatenate([params[:2], [0., 0., 1., 1.], params[2:5], [0.], params[5:], [1.]])
+    params = np.concatenate([params[:2], [1., 0., 0., 1.], params[2:5], [0.], params[5:], [1.]])
 
     theta_stream, xv_stream, _, _ = generate_stream_spray_base(params,  seed)
     count_bin, r_bin, w_bin = get_track_from_data(theta_stream, xv_stream[:, 0], xv_stream[:, 1], dict_data['theta'])
