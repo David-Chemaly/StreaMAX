@@ -55,7 +55,7 @@ if __name__ == "__main__":
     names = np.loadtxt(f'{PATH_DATA}/names.txt', dtype=str)
 
     for name in tqdm(names[:1], leave=True):
-        if not os.path.exists(f'{PATH_DATA}/{name}/running_nlive{nlive}_fixedProgcenter'):
+        if not os.path.exists(f'{PATH_DATA}/{name}/Plots_nlive{nlive}_fixedProgcenter'):
             new_PATH_DATA = f'{PATH_DATA}/{name}/Plots_nlive{nlive}_fixedProgcenter'
             os.makedirs(new_PATH_DATA, exist_ok=True)
 

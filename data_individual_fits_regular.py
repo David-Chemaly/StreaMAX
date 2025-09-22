@@ -48,7 +48,7 @@ def dynesty_fit(dict_data, ndim=11, nlive=2000, sigma=2):
     return dns_results
 
 if __name__ == "__main__":
-    ndim  = 13
+    ndim  = 10
     nlive = 2000
 
     PATH_DATA = f'/data/dc824-2/SGA_Streams'
