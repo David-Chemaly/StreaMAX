@@ -7,9 +7,9 @@ import dynesty
 import dynesty.utils as dyut
 
 from spray_base import generate_stream_spray_base
-from likelihoods import data_log_likelihood_spray_base
-from priors import prior_transform
-from utils import get_q, get_track_from_data
+from likelihoods import data_log_likelihood_spray_base_regular
+from priors import prior_transform_regular
+from utils import get_track_from_data
 
 import corner
 
@@ -17,12 +17,12 @@ import matplotlib.pyplot as plt
 plt.rcParams.update({'font.size': 18})
 
 
-def dynesty_fit(dict_data, ndim=14, nlive=2000, sigma=2):
+def dynesty_fit(dict_data, ndim=11, nlive=2000, sigma=2):
     nthreads = os.cpu_count()
     mp.set_start_method("spawn", force=True)
     with mp.Pool(nthreads) as poo:
-        dns = dynesty.DynamicNestedSampler(data_log_likelihood_spray_base,
-                                prior_transform,
+        dns = dynesty.DynamicNestedSampler(data_log_likelihood_spray_base_regular,
+                                prior_transform_regular,
                                 ndim,
                                 logl_args=(dict_data, sigma),
                                 nlive=nlive,
@@ -55,8 +55,8 @@ if __name__ == "__main__":
     names = np.loadtxt(f'{PATH_DATA}/names.txt', dtype=str)
 
     for name in tqdm(names[:1], leave=True):
-        if not os.path.exists(f'{PATH_DATA}/{name}/running_nlive{nlive}_fixedProgcenter'):
-            new_PATH_DATA = f'{PATH_DATA}/{name}/Plots_nlive{nlive}_fixedProgcenter'
+        if not os.path.exists(f'{PATH_DATA}/{name}/Plots_nlive{nlive}_fixedProgcenter_regular'):
+            new_PATH_DATA = f'{PATH_DATA}/{name}/Plots_nlive{nlive}_fixedProgcenter_regular'
             os.makedirs(new_PATH_DATA, exist_ok=True)
 
             with open(f"{PATH_DATA}/{name}/dict_track.pkl", "rb") as f:
@@ -71,7 +71,7 @@ if __name__ == "__main__":
                 pickle.dump(dict_results, f)
 
             # Plot and Save corner plot
-            labels = ['logM', 'Rs', 'dirx', 'diry', 'dirz', 'logm', 'rs', 'x0', 'z0', 'vx0', 'vy0', 'vz0', 'time']
+            labels = ['logM', 'Rs', 'logm', 'rs', 'x0', 'z0', 'vx0', 'vy0', 'vz0', 'time']
             figure = corner.corner(dict_results['samps'], 
                         labels=labels,
                         color='blue',
@@ -81,16 +81,6 @@ if __name__ == "__main__":
             figure.savefig(f'{new_PATH_DATA}/corner_plot.pdf')
             plt.close(figure)
 
-            # Plot and Save flattening
-            q_samps = get_q(dict_results['samps'][:, 2], dict_results['samps'][:, 3], dict_results['samps'][:, 4])
-            plt.figure(figsize=(8, 6))
-            plt.hist(q_samps, bins=30, density=True, alpha=0.7, color='blue')
-            plt.xlabel('Halo Flattening')
-            plt.ylabel('Density')
-            plt.tight_layout()
-            plt.savefig(f'{new_PATH_DATA}/q_posterior.pdf')
-            plt.close()
-
             # Plot and Save best fit
             plt.figure(figsize=(18, 7))
             plt.subplot(1, 2, 1)
@@ -98,8 +88,7 @@ if __name__ == "__main__":
             plt.ylabel(r'y [kpc]')
 
             best_params = dict_results['samps'][np.argmax(dict_results['logl'])]
-            q_best = get_q(best_params[2], best_params[3], best_params[4])
-            best_params = np.concatenate([best_params[:2], [q_best], best_params[2:8], [0.], best_params[8:], [1.]])
+            best_params = np.concatenate([best_params[:2], [0., 0., 1., 1.], best_params[2:5], [0.], best_params[5:], [1.]])
             np.savetxt(f'{new_PATH_DATA}/best_params.txt', best_params)
 
             theta_stream, xv_stream, theta_sat, xv_sat = generate_stream_spray_base(best_params, seed=111)

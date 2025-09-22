@@ -90,7 +90,6 @@ def prior_transform_regular(p):
     vz1 = jax.scipy.special.ndtri(vz0) * 250
 
     t1 = 1 + 3 * t0
-    # a1 = 0.9 + 0.2 * a0
     
     return jnp.array([
         logM1, Rs1,
