@@ -56,7 +56,7 @@ if __name__ == "__main__":
     PATH_DATA = f'/data/dc824-2/SGA_Streams'
     names = np.loadtxt(f'{PATH_DATA}/names.txt', dtype=str)
 
-    for name in tqdm(names, leave=True):
+    for name in tqdm(names[:1], leave=True):
         if not os.path.exists(f'{PATH_DATA}/{name}/running_nlive{nlive}_fixedProgcenter.txt'):
             np.savetxt(f'{PATH_DATA}/{name}/running_nlive{nlive}_fixedProgcenter.txt', [1])
 
