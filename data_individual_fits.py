@@ -7,6 +7,7 @@ import dynesty
 import dynesty.utils as dyut
 
 from spray import generate_stream_spray
+from spray_base import generate_stream_spray_base
 from likelihoods import log_likelihood_spray_base, data_log_likelihood_spray_base
 from priors import prior_transform
 from utils import get_q, get_track, get_track_from_data
@@ -102,7 +103,7 @@ if __name__ == "__main__":
             best_params = np.concatenate([best_params[:2], [q_best], best_params[2:8], [0.], best_params[8:], [1.]])
             np.savetxt(f'{PATH_DATA}/{name}/best_params_nlive{nlive}_fixedProgcenter.txt', best_params)
 
-            theta_stream, xv_stream, theta_sat, xv_sat = generate_stream_spray(best_params, seed=111)
+            theta_stream, xv_stream, theta_sat, xv_sat = generate_stream_spray_base(best_params, seed=111)
             _, r_bin, _ = get_track_from_data(theta_stream, xv_stream[:, 0], xv_stream[:, 1], dict_data['theta'])
             x_bin = r_bin * np.cos(dict_data['theta'])
             y_bin = r_bin * np.sin(dict_data['theta'])
