@@ -20,6 +20,29 @@ def data_log_likelihood_spray_base(params, dict_data, seed=13, N_min=3, q_min=0.
     theta_stream, xv_stream, _, _ = generate_stream_spray_base(params,  seed)
     count_bin, r_bin, w_bin = get_track_from_data(theta_stream, xv_stream[:, 0], xv_stream[:, 1], dict_data['theta'])
     
+    if np.all(count_bin >= N_min):
+        model_err = w_bin / np.sqrt(count_bin)
+        n_bad = np.sum(2*model_err > dict_data['r_err'])
+    else:
+        n_bad = np.sum(count_bin < N_min)
+    
+    if np.all(np.isnan(r_bin)):
+        logl = BAD_VAL * len(r_bin)
+
+    elif n_bad == 0:
+        logl  = -.5 * np.sum( ( (r_bin - dict_data['r']) / dict_data['r_err'] )**2 )
+
+    else:
+        logl = BAD_VAL * n_bad
+
+    return logl
+
+def data_log_likelihood_spray_base_regular(params, dict_data, seed=13, N_min=3):
+    params = np.concatenate([params[:2], [0., 0., 1., 1.], params[5:8], [0.], params[8:], [1.]])
+
+    theta_stream, xv_stream, _, _ = generate_stream_spray_base(params,  seed)
+    count_bin, r_bin, w_bin = get_track_from_data(theta_stream, xv_stream[:, 0], xv_stream[:, 1], dict_data['theta'])
+    
     model_err = w_bin / np.sqrt(count_bin)
     n_bad = np.sum( (2*model_err < dict_data['r_err']) * (count_bin > N_min) )
 

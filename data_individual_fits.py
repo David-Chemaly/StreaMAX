@@ -8,8 +8,8 @@ import dynesty.utils as dyut
 
 from spray import generate_stream_spray
 from spray_base import generate_stream_spray_base
-from likelihoods import log_likelihood_spray_base, data_log_likelihood_spray_base
-from priors import prior_transform
+from likelihoods import log_likelihood_spray_base, data_log_likelihood_spray_base, data_log_likelihood_spray_base_regular
+from priors import prior_transform, prior_transform_regular
 from utils import get_q, get_track, get_track_from_data
 
 import corner
@@ -48,6 +48,35 @@ def dynesty_fit(dict_data, ndim=14, nlive=2000, sigma=2):
 
     return dns_results
 
+def dynesty_fit(dict_data, ndim=11, nlive=2000, sigma=2):
+    nthreads = os.cpu_count()
+    mp.set_start_method("spawn", force=True)
+    with mp.Pool(nthreads) as poo:
+        dns = dynesty.DynamicNestedSampler(data_log_likelihood_spray_base_regular,
+                                prior_transform_regular,
+                                ndim,
+                                logl_args=(dict_data, sigma),
+                                nlive=nlive,
+                                sample='rslice',
+                                pool=poo,
+                                queue_size=nthreads * 2)
+        dns.run_nested(n_effective=10000)
+
+    res   = dns.results
+    inds  = np.arange(len(res.samples))
+    inds  = dyut.resample_equal(inds, weights=np.exp(res.logwt - res.logz[-1]))
+    samps = res.samples[inds]
+    logl  = res.logl[inds]
+
+    dns_results = {
+                    'dns': dns,
+                    'samps': samps,
+                    'logl': logl,
+                    'logz': res.logz,
+                    'logzerr': res.logzerr,
+                }
+
+    return dns_results
 
 if __name__ == "__main__":
     ndim  = 13
