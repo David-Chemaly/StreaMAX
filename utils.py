@@ -102,7 +102,7 @@ def get_track(theta_stream, x_stream, y_stream, n_bins=36):
         count    = jnp.sum(mask)
         r_in_bin = jnp.where(mask, r, jnp.nan)
 
-        return count, jnp.nanmedian(r_in_bin), (jnp.nanpercentile(r_in_bin, 16) - jnp.nanpercentile(r_in_bin, 84)) / 2
+        return count, jnp.nanmedian(r_in_bin), (jnp.nanpercentile(r_in_bin, 84) - jnp.nanpercentile(r_in_bin, 16)) / 2
     # Step 3: Vectorize
     all_bins = jnp.arange(1, n_bins + 1)
     count, r_bin, w_bin = jax.vmap(per_bin_median, in_axes=(0, None, None))(all_bins, bin_indices, r_stream)
@@ -126,7 +126,7 @@ def get_track_from_data(theta_stream, x_stream, y_stream, theta_data):
         count    = jnp.sum(mask)
         r_in_bin = jnp.where(mask, r, jnp.nan)
 
-        return count, jnp.nanmedian(r_in_bin), (jnp.nanpercentile(r_in_bin, 16) - jnp.nanpercentile(r_in_bin, 84)) / 2
+        return count, jnp.nanmedian(r_in_bin), (jnp.nanpercentile(r_in_bin, 84) - jnp.nanpercentile(r_in_bin, 16)) / 2
     # Step 3: Vectorize
     all_bins = jnp.arange(0, len(theta_data))
     count, r_bin, w_bin = jax.vmap(per_bin_median, in_axes=(0, None, None))(all_bins, bin_indices, r_stream)
@@ -159,13 +159,13 @@ def get_track_weights(theta_stream, x_stream, y_stream, weights, n_bins=36):
     return count, theta_bin, r_bin, w_bin
 
 @jax.jit
-def get_q(dirx, diry, dirz):
+def get_q(dirx, diry, dirz, q_min=0.5, q_max=2.0):
     """
     Computes the axis ratio q from the direction vector components. Uniform [0.5, 1.5].
     """
     r  = jnp.sqrt(dirx**2 + diry**2 + dirz**2) 
     q  = jnp.exp(-r**2/2) * (jnp.sqrt(jnp.pi) * jnp.exp(r**2/2) * jax.scipy.special.erf(r/jnp.sqrt(2)) - jnp.sqrt(2)*r)/jnp.sqrt(jnp.pi)
-    q += 0.5
+    q  = (q_max-q_min)*q + q_min
 
     return q
 
