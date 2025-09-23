@@ -20,7 +20,7 @@ def data_log_likelihood_spray_base(params, dict_data, seed=111, N_min=11, q_min=
     theta_stream, xv_stream, _, _ = generate_stream_spray_base(params,  seed)
     count_bin, r_bin, w_bin = get_track_from_data(theta_stream, xv_stream[:, 0], xv_stream[:, 1], dict_data['theta'])
 
-    n_bad = np.sum(count_bin < N_min)
+    n_bad = np.sum(np.nan_to_num(count_bin, nan=0.) < N_min)
     if np.all(np.isnan(r_bin)):
         logl = BAD_VAL * len(r_bin)
     elif n_bad == 0:
@@ -38,7 +38,7 @@ def data_log_likelihood_spray_base_regular(params, dict_data, seed=111, N_min=11
     theta_stream, xv_stream, _, _ = generate_stream_spray_base(params,  seed)
     count_bin, r_bin, w_bin = get_track_from_data(theta_stream, xv_stream[:, 0], xv_stream[:, 1], dict_data['theta'])
     
-    n_bad = np.sum(count_bin < N_min)
+    n_bad = np.sum(np.nan_to_num(count_bin, nan=0.) < N_min)
     if np.all(np.isnan(r_bin)):
         logl = BAD_VAL * len(r_bin)
     elif n_bad == 0:
