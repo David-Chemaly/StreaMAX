@@ -219,3 +219,35 @@ def inference_second(theta_stream, xv_stream, refs, S, T, seed=111, disp_x=0.5, 
     unwrapped_theta_samples = jax.vmap(unwrap_step, in_axes=(0, None))(theta_samples, theta_stream)
 
     return unwrapped_theta_samples.reshape(-1), samples_final.reshape(-1, 3)
+
+### For Real Image ###
+
+from astropy.io import fits
+from astropy.cosmology import Planck18 as cosmo
+import numpy as np
+
+def get_residuals_and_mask(path, sga, name, vminperc=35, vmaxperc=90):
+    # Load Residuals
+    with fits.open(f"{path}/{name}/data.fits") as hdul:
+        header = hdul[0].header
+        data = hdul[0].data
+    with fits.open(f"{path}/{name}/model.fits") as hdul:
+        model = hdul[0].data
+    residual = data - model
+    residual = np.median(residual, axis=0)
+    mm = np.nanpercentile(residual, [vminperc, vmaxperc])
+    residual = np.nan_to_num(np.clip(residual, mm[0], mm[1]), 0.0)
+
+    # Load Mask
+    with fits.open(f"{path}/{name}/mask.fits") as hdul:
+        mask = hdul[0].data
+    mask = mask/mask.max() # This assumes that only one mask is present
+
+    # Get Redshift and pixel scale
+    sga_name = name.split('_')[0]
+    PA = sga[sga['GALAXY'] == sga_name]['PA'].data[0]
+    z_redshift = sga[sga['GALAXY'] == sga_name]['Z_LEDA'].data[0]
+    pixel_to_deg = abs(header['PC1_1'])
+    pixel_to_kpc = pixel_to_deg * np.pi / 180 * cosmo.comoving_transverse_distance(z_redshift).value * 1000
+
+    return residual, mask, z_redshift, pixel_to_kpc, PA

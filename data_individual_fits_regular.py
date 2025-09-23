@@ -3,13 +3,15 @@ import pickle
 import numpy as np
 from tqdm import tqdm
 import multiprocessing as mp
+from astropy.table import Table
+
 import dynesty
 import dynesty.utils as dyut
 
 from spray_base import generate_stream_spray_base
 from likelihoods import data_log_likelihood_spray_base_regular
 from priors import prior_transform_regular
-from utils import get_track_from_data
+from utils import get_track_from_data, get_residuals_and_mask
 
 import corner
 
@@ -54,7 +56,7 @@ if __name__ == "__main__":
     PATH_DATA = f'/data/dc824-2/SGA_Streams'
     names = np.loadtxt(f'{PATH_DATA}/names.txt', dtype=str)
 
-    for name in tqdm(names[2:3], leave=True):
+    for name in tqdm(names, leave=True):
         if not os.path.exists(f'{PATH_DATA}/{name}/Plots_nlive{nlive}_fixedProgcenter_regular'):
             new_PATH_DATA = f'{PATH_DATA}/{name}/Plots_nlive{nlive}_fixedProgcenter_regular'
             os.makedirs(new_PATH_DATA, exist_ok=True)
@@ -115,4 +117,27 @@ if __name__ == "__main__":
 
             plt.tight_layout()
             plt.savefig(f'{new_PATH_DATA}/best_fit.pdf')
+            plt.close()
+
+            # Plot and Save Best fit on Data
+            sga = Table.read(f'{PATH_DATA}/SGA-2020.fits', hdu=1)
+
+            residual, mask, z_redshift, pixel_to_kpc, PA = get_residuals_and_mask(PATH_DATA, sga, name)
+            center_x, center_y = residual.shape[1]//2, residual.shape[0]//2
+
+            plt.figure(figsize=(12, 8))
+            plt.subplot(1, 2, 1)
+            plt.imshow(residual, origin='lower', cmap='gray')
+            plt.scatter(dict_data['x']/pixel_to_kpc + center_x, dict_data['y']/pixel_to_kpc + center_y, alpha=0.8, color='red', s=10, label='Data')
+            plt.axis('off')
+            plt.subplot(1, 2, 2)
+            r_stream = np.sqrt(xv_stream[:, 0]**2 + xv_stream[:, 1]**2)
+            theta_stream = np.arctan2(xv_stream[:, 1], xv_stream[:, 0]) + dict_data['delta_theta']
+            x_stream = r_stream * np.cos(theta_stream)
+            y_stream = r_stream * np.sin(theta_stream)
+            plt.imshow(residual, origin='lower', cmap='gray')
+            plt.scatter(x_stream / pixel_to_kpc + center_x, y_stream / pixel_to_kpc + center_y, alpha=0.1, color='blue', s=1, label='Best fit')
+            plt.scatter(dict_data['x']/pixel_to_kpc + center_x, dict_data['y']/pixel_to_kpc + center_y, alpha=0.8, color='red', s=10, label='Data')
+            plt.axis('off')
+            plt.savefig(f'{new_PATH_DATA}/image_best_fit.pdf')
             plt.close()
