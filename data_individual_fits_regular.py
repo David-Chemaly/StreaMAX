@@ -52,7 +52,7 @@ def dynesty_fit(dict_data, ndim=11, nlive=2000, sigma=2):
 
 if __name__ == "__main__":
     ndim  = 10
-    nlive = 4000
+    nlive = 2000
 
     PATH_DATA = f'/data/dc824-2/SGA_Streams'
     names = np.loadtxt(f'{PATH_DATA}/names.txt', dtype=str)

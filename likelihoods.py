@@ -13,54 +13,40 @@ from streak import generate_stream_streak
 
 BAD_VAL = -1e10
 
-def data_log_likelihood_spray_base(params, dict_data, seed=13, N_min=3, q_min=0.5, q_max=2.0):
+def data_log_likelihood_spray_base(params, dict_data, seed=111, N_min=11, q_min=0.5, q_max=2.0):
     q      = get_q(params[2], params[3], params[4], q_min=q_min, q_max=q_max)
     params = np.concatenate([params[:2], [q], params[2:8], [0.], params[8:], [1.]])
 
     theta_stream, xv_stream, _, _ = generate_stream_spray_base(params,  seed)
     count_bin, r_bin, w_bin = get_track_from_data(theta_stream, xv_stream[:, 0], xv_stream[:, 1], dict_data['theta'])
-    
-    if np.all(count_bin >= N_min):
-        model_err = w_bin / np.sqrt(count_bin)
-        n_bad = np.sum(2*model_err > dict_data['r_err'])
-    else:
-        n_bad = np.sum(count_bin < N_min)
-    
+
+    n_bad = np.sum(count_bin < N_min)
     if np.all(np.isnan(r_bin)):
         logl = BAD_VAL * len(r_bin)
-
     elif n_bad == 0:
-        logl  = -.5 * np.sum( ( (r_bin - dict_data['r']) / dict_data['r_err'] )**2 )
-
+        model_err = w_bin / np.sqrt(count_bin)
+        var = model_err**2 + dict_data['r_err']**2
+        logl  = -.5 * np.sum(  (r_bin - dict_data['r'])**2 / var  + np.log(2 * np.pi * var)  )
     else:
         logl = BAD_VAL * n_bad
 
     return logl
 
-def data_log_likelihood_spray_base_regular(params, dict_data, seed=13, N_min=3):
+def data_log_likelihood_spray_base_regular(params, dict_data, seed=111, N_min=11):
     params = np.concatenate([params[:2], [1., 0., 0., 1.], params[2:5], [0.], params[5:], [1.]])
 
     theta_stream, xv_stream, _, _ = generate_stream_spray_base(params,  seed)
     count_bin, r_bin, w_bin = get_track_from_data(theta_stream, xv_stream[:, 0], xv_stream[:, 1], dict_data['theta'])
     
-    model_err = w_bin / np.sqrt(count_bin)
-    n_bad = np.sum( (2*model_err < dict_data['r_err']) * (count_bin > N_min) )
-
-    if np.all(count_bin >= N_min) and np.all(np.isfinite(w_bin)) and np.all(w_bin > 0):
-        model_err = w_bin / np.sqrt(count_bin)
-        n_bad = np.sum(2*model_err > dict_data['r_err'])
-    else:
-        n_bad = np.sum(count_bin < N_min)
-    
+    n_bad = np.sum(count_bin < N_min)
     if np.all(np.isnan(r_bin)):
         logl = BAD_VAL * len(r_bin)
-
     elif n_bad == 0:
-        logl  = -.5 * np.sum( ( (r_bin - dict_data['r']) / dict_data['r_err'] )**2 )
-
+        model_err = w_bin / np.sqrt(count_bin)
+        var = model_err**2 + dict_data['r_err']**2
+        logl  = -.5 * np.sum(  (r_bin - dict_data['r'])**2 / var  + np.log(2 * np.pi * var)  )
     else:
         logl = BAD_VAL * n_bad
-
 
     return logl
 
