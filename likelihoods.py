@@ -46,7 +46,7 @@ def data_log_likelihood_spray_base_regular(params, dict_data, seed=13, N_min=3):
     model_err = w_bin / np.sqrt(count_bin)
     n_bad = np.sum( (2*model_err < dict_data['r_err']) * (count_bin > N_min) )
 
-    if np.all(count_bin >= N_min):
+    if np.all(count_bin >= N_min) and np.all(np.isfinite(w_bin)) and np.all(w_bin > 0):
         model_err = w_bin / np.sqrt(count_bin)
         n_bad = np.sum(2*model_err > dict_data['r_err'])
     else:

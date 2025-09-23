@@ -1,6 +1,7 @@
 import os
 import pickle
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
 import multiprocessing as mp
 from astropy.table import Table
@@ -11,7 +12,7 @@ import dynesty.utils as dyut
 from spray_base import generate_stream_spray_base
 from likelihoods import data_log_likelihood_spray_base_regular
 from priors import prior_transform_regular
-from utils import get_track_from_data, get_residuals_and_mask
+from utils import get_track_from_data, get_residuals_and_mask, halo_mass_from_stellar_mass
 
 import corner
 
@@ -51,13 +52,19 @@ def dynesty_fit(dict_data, ndim=11, nlive=2000, sigma=2):
 
 if __name__ == "__main__":
     ndim  = 10
-    nlive = 2000
+    nlive = 4000
 
     PATH_DATA = f'/data/dc824-2/SGA_Streams'
     names = np.loadtxt(f'{PATH_DATA}/names.txt', dtype=str)
+    STRRINGS_catalogue = pd.read_csv(f'{PATH_DATA}/STRRINGS_catalogue.csv')
 
+    index = 0
     for name in tqdm(names, leave=True):
+        index += 1
         if not os.path.exists(f'{PATH_DATA}/{name}/Plots_nlive{nlive}_fixedProgcenter_regular'):
+            M_stellar = STRRINGS_catalogue.iloc[0]['M_stream']/STRRINGS_catalogue.iloc[0]['M_stream/M_host']
+            M_halo = np.log10(halo_mass_from_stellar_mass(M_stellar))
+
             new_PATH_DATA = f'{PATH_DATA}/{name}/Plots_nlive{nlive}_fixedProgcenter_regular'
             os.makedirs(new_PATH_DATA, exist_ok=True)
 
@@ -65,6 +72,7 @@ if __name__ == "__main__":
                 dict_data = pickle.load(f)
             
             # This sets the progenitor in the middle of the stream
+            dict_data['delta_theta'] = np.median(dict_data['theta'])
             dict_data['theta'] -= np.median(dict_data['theta'])
 
             print(f'Fitting {name} with nlive={nlive} and fixed progenitor at center')
@@ -79,7 +87,10 @@ if __name__ == "__main__":
                         color='blue',
                         quantiles=[0.16, 0.5, 0.84],
                         show_titles=True, 
-                        title_kwargs={"fontsize": 16})
+                        title_kwargs={"fontsize": 16},
+                        truths=[M_halo, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan],
+                        truth_color='red'
+                        )
             figure.savefig(f'{new_PATH_DATA}/corner_plot.pdf')
             plt.close(figure)
 

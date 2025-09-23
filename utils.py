@@ -251,3 +251,26 @@ def get_residuals_and_mask(path, sga, name, vminperc=35, vmaxperc=90):
     pixel_to_kpc = pixel_to_deg * np.pi / 180 * cosmo.comoving_transverse_distance(z_redshift).value * 1000
 
     return residual, mask, z_redshift, pixel_to_kpc, PA
+
+import math
+def halo_mass_from_stellar_mass(M_star, 
+                                N=0.0351, log10_M1=11.59, beta=1.376, gamma=0.608,
+                                mmin=1e9, mmax=3e16, tol=1e-6, max_iter=200):
+    """
+    Return halo mass M_h [Msun] for a given stellar mass M_star [Msun]
+    using the Moster+2013 z=0 SHMR (median relation).
+    """
+    def mstar_from_mh(Mh):
+        x = Mh / (10**log10_M1)
+        return 2*N*Mh / (x**(-beta) + x**gamma)
+
+    a, b = mmin, mmax
+    for _ in range(max_iter):
+        mid = 10**((math.log10(a)+math.log10(b))/2)
+        if mstar_from_mh(mid) > M_star:
+            b = mid
+        else:
+            a = mid
+        if abs(math.log10(b) - math.log10(a)) < tol:
+            return 10**((math.log10(a)+math.log10(b))/2)
+    return 10**((math.log10(a)+math.log10(b))/2)
