@@ -54,7 +54,7 @@ if __name__ == "__main__":
     PATH_DATA = f'/data/dc824-2/SGA_Streams'
     names = np.loadtxt(f'{PATH_DATA}/names.txt', dtype=str)
 
-    for name in tqdm(names[1:2], leave=True):
+    for name in tqdm(names[2:3], leave=True):
         if not os.path.exists(f'{PATH_DATA}/{name}/Plots_nlive{nlive}_fixedProgcenter_regular'):
             new_PATH_DATA = f'{PATH_DATA}/{name}/Plots_nlive{nlive}_fixedProgcenter_regular'
             os.makedirs(new_PATH_DATA, exist_ok=True)
@@ -88,7 +88,7 @@ if __name__ == "__main__":
             plt.ylabel(r'y [kpc]')
 
             best_params = dict_results['samps'][np.argmax(dict_results['logl'])]
-            best_params = np.concatenate([best_params[:2], [0., 0., 1., 1.], best_params[2:5], [0.], best_params[5:], [1.]])
+            best_params = np.concatenate([best_params[:2], [1., 0., 0., 1.], best_params[2:5], [0.], best_params[5:], [1.]])
             np.savetxt(f'{new_PATH_DATA}/best_params.txt', best_params)
 
             theta_stream, xv_stream, theta_sat, xv_sat = generate_stream_spray_base(best_params, seed=111)
