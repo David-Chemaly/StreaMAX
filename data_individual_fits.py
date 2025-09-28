@@ -58,11 +58,11 @@ if __name__ == "__main__":
     names = np.loadtxt(f'{PATH_DATA}/names.txt', dtype=str)
     STRRINGS_catalogue = pd.read_csv(f'{PATH_DATA}/STRRINGS_catalogue.csv')
 
-    index = 0
+    index = -1
     for name in tqdm(names, leave=True):
         index += 1
         if not os.path.exists(f'{PATH_DATA}/{name}/Plots_nlive{nlive}_fixedProgcenter'):
-            M_stellar = STRRINGS_catalogue.iloc[0]['M_stream']/STRRINGS_catalogue.iloc[0]['M_stream/M_host']
+            M_stellar = STRRINGS_catalogue.iloc[index]['M_stream']/STRRINGS_catalogue.iloc[index]['M_stream/M_host']
             M_halo = np.log10(halo_mass_from_stellar_mass(M_stellar))
 
             new_PATH_DATA = f'{PATH_DATA}/{name}/Plots_nlive{nlive}_fixedProgcenter'
@@ -89,7 +89,7 @@ if __name__ == "__main__":
                         show_titles=True, 
                         title_kwargs={"fontsize": 16},
                         truths=[M_halo, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan],
-                        truth_color='red'
+                        truth_color='red',
                         )
             figure.savefig(f'{new_PATH_DATA}/corner_plot.pdf')
             plt.close(figure)
