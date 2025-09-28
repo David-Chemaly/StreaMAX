@@ -146,9 +146,16 @@ if __name__ == "__main__":
             theta_stream = np.arctan2(xv_stream[:, 1], xv_stream[:, 0]) + dict_data['delta_theta']
             x_stream = r_stream * np.cos(theta_stream)
             y_stream = r_stream * np.sin(theta_stream)
+            x_bin = r_bin * np.cos(dict_data['theta'] + dict_data['delta_theta'])
+            y_bin = r_bin * np.sin(dict_data['theta'] + dict_data['delta_theta'])
             plt.imshow(residual, origin='lower', cmap='gray')
             plt.scatter(x_stream / pixel_to_kpc + center_x, y_stream / pixel_to_kpc + center_y, alpha=0.1, color='blue', s=1, label='Best fit')
+            plt.scatter(x_bin / pixel_to_kpc + center_x, y_bin / pixel_to_kpc + center_y, c='lime')
             plt.scatter(dict_data['x']/pixel_to_kpc + center_x, dict_data['y']/pixel_to_kpc + center_y, alpha=0.8, color='red', s=10, label='Data')
+            plt.xlim(0, residual.shape[1])
+            plt.ylim(0, residual.shape[0])
             plt.axis('off')
             plt.savefig(f'{new_PATH_DATA}/image_best_fit.pdf')
             plt.close()
+
+            break

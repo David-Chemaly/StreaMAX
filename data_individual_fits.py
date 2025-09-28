@@ -97,7 +97,11 @@ if __name__ == "__main__":
             # Plot and Save flattening
             q_samps = get_q(dict_results['samps'][:, 2], dict_results['samps'][:, 3], dict_results['samps'][:, 4])
             plt.figure(figsize=(8, 6))
-            plt.hist(q_samps, bins=30, density=True, alpha=0.7, color='blue')
+            plt.hist(q_samps, bins=30, density=True, alpha=0.7, color='blue', range=(0.5, 2.0))
+            plt.axvline(np.median(q_samps), color='blue', linestyle='--', lw=2)
+            plt.axvline(np.percentile(q_samps, 16), color='blue', linestyle=':', lw=2)
+            plt.axvline(np.percentile(q_samps, 84), color='blue', linestyle=':', lw=2)
+            plt.axvline(1.0, color='k', linestyle='-', lw=2)
             plt.xlabel('Halo Flattening')
             plt.ylabel('Density')
             plt.tight_layout()
@@ -157,12 +161,19 @@ if __name__ == "__main__":
             theta_stream = np.arctan2(xv_stream[:, 1], xv_stream[:, 0]) + dict_data['delta_theta']
             x_stream = r_stream * np.cos(theta_stream)
             y_stream = r_stream * np.sin(theta_stream)
+            x_bin = r_bin * np.cos(dict_data['theta'] + dict_data['delta_theta'])
+            y_bin = r_bin * np.sin(dict_data['theta'] + dict_data['delta_theta'])
             plt.imshow(residual, origin='lower', cmap='gray')
             plt.scatter(x_stream / pixel_to_kpc + center_x, y_stream / pixel_to_kpc + center_y, alpha=0.1, color='blue', s=1, label='Best fit')
+            plt.scatter(x_bin / pixel_to_kpc + center_x, y_bin / pixel_to_kpc + center_y, c='lime')
             plt.scatter(dict_data['x']/pixel_to_kpc + center_x, dict_data['y']/pixel_to_kpc + center_y, alpha=0.8, color='red', s=10, label='Data')
+            plt.xlim(0, residual.shape[1])
+            plt.ylim(0, residual.shape[0])
             plt.axis('off')
             plt.savefig(f'{new_PATH_DATA}/image_best_fit.pdf')
             plt.close()
+
+            break
 
 
 
