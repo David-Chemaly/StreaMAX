@@ -61,12 +61,12 @@ if __name__ == "__main__":
     index = -1
     for name in tqdm(names, leave=True):
         index += 1
-        if not os.path.exists(f'{PATH_DATA}/{name}/Plots_nlive{nlive}_fixedProgcenter_regular_MeanModelErr'):
+        new_PATH_DATA = f'{PATH_DATA}/{name}/Plots_nlive{nlive}_fixedProgcenter_regular_Nmin51_MeanModelErrMin0.5'
+        if not os.path.exists(new_PATH_DATA):
+            os.makedirs(new_PATH_DATA, exist_ok=True)
+
             M_stellar = STRRINGS_catalogue.iloc[index]['M_stream']/STRRINGS_catalogue.iloc[index]['M_stream/M_host']
             M_halo = np.log10(halo_mass_from_stellar_mass(M_stellar))
-
-            new_PATH_DATA = f'{PATH_DATA}/{name}/Plots_nlive{nlive}_fixedProgcenter_regular_MeanModelErr'
-            os.makedirs(new_PATH_DATA, exist_ok=True)
 
             with open(f"{PATH_DATA}/{name}/dict_track.pkl", "rb") as f:
                 dict_data = pickle.load(f)

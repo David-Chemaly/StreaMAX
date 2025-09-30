@@ -13,7 +13,7 @@ from streak import generate_stream_streak
 
 BAD_VAL = -1e10
 
-def data_log_likelihood_spray_base(params, dict_data, seed=111, N_min=11, q_min=0.5, q_max=2.0):
+def data_log_likelihood_spray_base(params, dict_data, seed=111, N_min=51, q_min=0.5, q_max=2.0):
     q      = get_q(params[2], params[3], params[4], q_min=q_min, q_max=q_max)
     params = np.concatenate([params[:2], [q], params[2:8], [0.], params[8:], [1.]])
 
@@ -24,15 +24,18 @@ def data_log_likelihood_spray_base(params, dict_data, seed=111, N_min=11, q_min=
     if np.all(np.isnan(r_bin)):
         logl = BAD_VAL * len(r_bin)
     elif n_bad == 0:
-        model_err = np.mean(w_bin / np.sqrt(count_bin))
-        var = model_err**2 + dict_data['r_err']**2
-        logl  = -.5 * np.sum(  (r_bin - dict_data['r'])**2 / var  + np.log(2 * np.pi * var)  )
+        model_err = w_bin / np.sqrt(count_bin)
+        if np.mean(model_err/dict_data['r_err']) < 0.5:
+            var = dict_data['r_err']**2 #+ model_err**2
+            logl  = -.5 * np.sum(  (r_bin - dict_data['r'])**2 / var  + np.log(2 * np.pi * var)  )
+        else:
+            return BAD_VAL * 0.5
     else:
         logl = BAD_VAL * n_bad
 
     return logl
 
-def data_log_likelihood_spray_base_regular(params, dict_data, seed=111, N_min=11):
+def data_log_likelihood_spray_base_regular(params, dict_data, seed=111, N_min=51):
     params = np.concatenate([params[:2], [1., 0., 0., 1.], params[2:5], [0.], params[5:], [1.]])
 
     theta_stream, xv_stream, _, _ = generate_stream_spray_base(params,  seed)
@@ -42,9 +45,12 @@ def data_log_likelihood_spray_base_regular(params, dict_data, seed=111, N_min=11
     if np.all(np.isnan(r_bin)):
         logl = BAD_VAL * len(r_bin)
     elif n_bad == 0:
-        model_err = np.mean(w_bin / np.sqrt(count_bin))
-        var = model_err**2 + dict_data['r_err']**2
-        logl  = -.5 * np.sum(  (r_bin - dict_data['r'])**2 / var  + np.log(2 * np.pi * var)  )
+        model_err = w_bin / np.sqrt(count_bin)
+        if np.mean(model_err/dict_data['r_err']) < 0.5:
+            var = dict_data['r_err']**2 #+ model_err**2
+            logl  = -.5 * np.sum(  (r_bin - dict_data['r'])**2 / var  + np.log(2 * np.pi * var)  )
+        else:
+            return BAD_VAL * 0.5
     else:
         logl = BAD_VAL * n_bad
 
