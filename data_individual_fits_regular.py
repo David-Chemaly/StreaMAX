@@ -61,7 +61,7 @@ if __name__ == "__main__":
     index = -1
     for name in tqdm(names, leave=True):
         index += 1
-        new_PATH_DATA = f'{PATH_DATA}/{name}/Plots_nlive{nlive}_fixedProgcenter_regular_Nmin51_MeanModelErrMin0.5'
+        new_PATH_DATA = f'{PATH_DATA}/{name}/Plots_nlive{nlive}_fixedProgcenter_regular_Nmin51'
         if not os.path.exists(new_PATH_DATA):
             os.makedirs(new_PATH_DATA, exist_ok=True)
 

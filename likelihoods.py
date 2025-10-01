@@ -24,12 +24,12 @@ def data_log_likelihood_spray_base(params, dict_data, seed=111, N_min=51, q_min=
     if np.all(np.isnan(r_bin)):
         logl = BAD_VAL * len(r_bin)
     elif n_bad == 0:
-        model_err = w_bin / np.sqrt(count_bin)
-        if np.mean(model_err/dict_data['r_err']) < 0.5:
-            var = dict_data['r_err']**2 #+ model_err**2
-            logl  = -.5 * np.sum(  (r_bin - dict_data['r'])**2 / var  + np.log(2 * np.pi * var)  )
-        else:
-            return BAD_VAL * 0.5
+        # model_err = w_bin / np.sqrt(count_bin)
+        # if np.mean(model_err/dict_data['r_err']) < 0.5:
+        var = dict_data['r_err']**2 #+ model_err**2
+        logl  = -.5 * np.sum(  (r_bin - dict_data['r'])**2 / var  + np.log(2 * np.pi * var)  )
+        # else:
+        #     return BAD_VAL * 0.5
     else:
         logl = BAD_VAL * n_bad
 
@@ -45,12 +45,12 @@ def data_log_likelihood_spray_base_regular(params, dict_data, seed=111, N_min=51
     if np.all(np.isnan(r_bin)):
         logl = BAD_VAL * len(r_bin)
     elif n_bad == 0:
-        model_err = w_bin / np.sqrt(count_bin)
-        if np.mean(model_err/dict_data['r_err']) < 0.5:
-            var = dict_data['r_err']**2 #+ model_err**2
-            logl  = -.5 * np.sum(  (r_bin - dict_data['r'])**2 / var  + np.log(2 * np.pi * var)  )
-        else:
-            return BAD_VAL * 0.5
+        # model_err = w_bin / np.sqrt(count_bin)
+        # if np.mean(model_err/dict_data['r_err']) < 0.5:
+        var = dict_data['r_err']**2 #+ model_err**2
+        logl  = -.5 * np.sum(  (r_bin - dict_data['r'])**2 / var  + np.log(2 * np.pi * var)  )
+        # else:
+        #     return BAD_VAL * 0.5
     else:
         logl = BAD_VAL * n_bad
 
