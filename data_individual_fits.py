@@ -172,9 +172,3 @@ if __name__ == "__main__":
             plt.axis('off')
             plt.savefig(f'{new_PATH_DATA}/image_best_fit.pdf')
             plt.close()
-
-            break
-
-
-
-    
