@@ -8,5 +8,5 @@ KPC_TO_KM     = (1 * auni.kpc/auni.km).to(auni.km/auni.km).value
 GYR_TO_S      = (1 * auni.Gyr/auni.s).to(auni.s/auni.s).value
 KMS_TO_KPCGYR = GYR_TO_S / KPC_TO_KM
 KPCGYR_TO_KMS = KPC_TO_KM / GYR_TO_S
-EPSILON       = 1e-8  # Small constant to avoid division by zero
+EPSILON       = 1e-12  # Small constant to avoid division by zero
 TWOPI         = 2 * jnp.pi

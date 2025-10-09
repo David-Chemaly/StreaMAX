@@ -5,6 +5,7 @@ jaxlib>=0.4.0
 # Scientific computing
 numpy>=1.21.0
 astropy>=5.0.0
+gala>=1.10.0
 
 # Visualization
 matplotlib>=3.5.0
