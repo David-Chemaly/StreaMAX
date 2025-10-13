@@ -2,7 +2,7 @@ import jax
 import jax.numpy as jnp
 from functools import partial
 
-from constants import G, EPSILON
+from .constants import G, EPSILON
 
 @jax.jit
 def get_mat(x, y, z):

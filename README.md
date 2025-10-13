@@ -1,26 +1,77 @@
-# StreaMAX - a JAX-accelerated stream generator
+# StreaMAX — A JAX-Accelerated Stellar Stream Generator
 
-This package serves as a fast and efficient simulator of stellar streams. The goal is to make the modeling fast enough for Bayesian inference. 
+StreaMAX is a lightweight, high-performance simulator for stellar streams built with JAX.  
+It’s designed to make modeling and inference on stellar streams fast enough for Bayesian analysis and modern data-intensive workflows.
 
-## Models
+---
 
-StreaMAX offers the following 4 modeling frameworks all JAX-compiled:
+## 🚀 Features
 
-    - Spray: from spray import generate_stream_spray
-    - Streak: from streak import generate_stream_streak
-    - 1st order: to come
+- Particle-spray modeling of stellar streams  
+- Fast 2D track extraction  
+- JAX-accelerated integration for GPU/TPU compatibility  
+- Automatic differentiation, can easily compute gradients of the models directly via JAX  
+- Modular architecture
 
-## Quick Start
+---
 
-Look at the quick_start.ipynb to see how to define the parameters and generate a stream from the aformentioned methods. 
+## 🧩 Models
 
-## Installation
+StreaMAX supports:
+- Rapid generation of stellar streams using the particle-spray method  
+- Efficient extraction of stream tracks for analysis and inference  
+
+---
+
+## 🧪 Quick Start
+
+See the `quick_start.ipynb` notebook for an example on how to:
+
+- Define potential and stream parameters  
+- Generate a stream using the particle-spray method  
+- Extract and visualize the resulting track  
+
+---
+
+## ⚙️ Installation
+
+### From PyPI
 
 ```bash
-# Clone the repository
+pip install StreaMAX
+```
+
+### From GitHub (development version)
+
+```bash
 git clone https://github.com/David-Chemaly/StreaMAX.git
 cd StreaMAX
+pip install -e .
+```
 
-# Install dependencies
+### Manual dependency installation
+
+```bash
 pip install -r requirements.txt
 ```
+
+---
+
+## 📚 Citation & License
+
+This project is released under the MIT License.  
+If you use StreaMAX in your research, please cite and reference the repository:
+
+Chemaly, D. et al. 2025 (in prep.). StreaMAX: A JAX-accelerated stellar stream generator.  
+GitHub repository: https://github.com/David-Chemaly/StreaMAX
+
+---
+
+## 🪐 Contributing
+
+Pull requests and feature suggestions are welcome.  
+If you encounter bugs or wish to contribute new potentials or integrators, please open an issue on GitHub.
+
+---
+
+**Fast. Differentiable. Modular. JAX-powered.**

@@ -1,10 +1,9 @@
 import jax
 import jax.numpy as jnp
-from functools import partial
 
-from utils import get_mat
+from .utils import get_mat
 
-from constants import G, EPSILON
+from .constants import G, EPSILON
 
 # ---------- helpers ----------
 @jax.jit

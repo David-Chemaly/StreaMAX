@@ -2,9 +2,9 @@ import jax
 import jax.numpy as jnp
 from functools import partial
 
-from potentials import *
-from utils import get_rj_vj_R, create_ic_particle_spray
-from integrants import integrate_leapfrog_final, integrate_leapfrog_traj, combined_integrate_leapfrog_final
+from .potentials import *
+from .utils import get_rj_vj_R, create_ic_particle_spray
+from .integrants import integrate_leapfrog_final, integrate_leapfrog_traj, combined_integrate_leapfrog_final
 
 @partial(jax.jit, static_argnames=('type_host', 'type_sat', 'n_particles', 'n_steps', 'unroll'))
 def generate_stream(xv_f, 

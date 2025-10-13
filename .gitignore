@@ -1,5 +1,38 @@
-.gitignore
-play.ipynb
-plots.ipynb
-MockStreams/
-Plots/
+# --- Python build ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+*.egg
+*.log
+
+# --- Virtual environments ---
+.env
+.venv
+env/
+venv/
+.ipynb_checkpoints/
+
+# --- IDEs / editors ---
+.vscode/
+.idea/
+*.swp
+
+# --- Jupyter notebooks ---
+# (keep your main notebooks like quick_start.ipynb, but ignore temporary autosaves)
+*checkpoint.ipynb
+*.nbconvert.ipynb
+
+# --- MacOS / system files ---
+.DS_Store
+
+# --- Test coverage / pytest ---
+.coverage
+.pytest_cache/
+
+# --- Wheel build files ---
+*.whl
+
+# --- Local config ---
+*.local
