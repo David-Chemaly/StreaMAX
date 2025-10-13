@@ -1,3 +1,16 @@
+# Core JAX dependencies
 jax>=0.4.0
+jaxlib>=0.4.0
+
+# Scientific computing
 astropy>=5.0.0
-functools
+
+# Visualization
+matplotlib>=3.5.0
+
+# Progress bars and utilities
+tqdm>=4.60.0
+
+# Development and notebook support
+jupyter>=1.0.0
+ipykernel>=6.0.0
