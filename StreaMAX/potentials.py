@@ -19,6 +19,9 @@ def _rotate(vec, p):
 # Phi = - G M / r
 @jax.jit
 def PointMass_potential(x, y, z, params):
+    '''
+    params: dict with keys 'logM', 'x_origin', 'y_origin', 'z_origin', 'dirx', 'diry', 'dirz'
+    '''
     r  = _shift(x, y, z, params)
     s  = jnp.sqrt(r @ r + EPSILON)
     return -G * 10**params['logM'] / s # kpc^2 / Gyr^2
@@ -41,10 +44,12 @@ def PointMass_hessian(x, y, z, params):
 # Phi = - G M / ( b + sqrt(r^2 + b^2) )
 @jax.jit
 def Isochrone_potential(x, y, z, params):
-    b = params['Rs']
+    '''
+    params: dict with keys 'logM', 'Rs', 'x_origin', 'y_origin', 'z_origin', 'dirx', 'diry', 'dirz'
+    '''
     r = _shift(x, y, z, params)
-    s  = jnp.sqrt(r @ r + b*b + EPSILON)
-    return -G * 10**params['logM'] / (b + s)  # kpc^2 / Gyr^2
+    s  = jnp.sqrt(r @ r + params['Rs']*params['Rs'] + EPSILON)
+    return -G * 10**params['logM'] / (params['Rs'] + s)  # kpc^2 / Gyr^2
 
 @jax.jit
 def Isochrone_acceleration(x, y, z, params):
@@ -61,12 +66,14 @@ def Isochrone_hessian(x, y, z, params):
     return hess_phi
 
 # ---------- Plummer ----------
-# Phi = - G M / sqrt(r^2 + b^2)
+# Phi = - G M / sqrt(r^2 + Rs^2)
 @jax.jit
 def Plummer_potential(x, y, z, params):
-    b = params['Rs']
+    '''
+    params: dict with keys 'logM', 'Rs', 'x_origin', 'y_origin', 'z_origin', 'dirx', 'diry', 'dirz'
+    '''
     r = _shift(x, y, z, params)
-    s = jnp.sqrt(r @ r + b*b + EPSILON)
+    s = jnp.sqrt(r @ r + params['Rs']*params['Rs'] + EPSILON)
     return -G * 10**params['logM'] / s  # kpc^2 / Gyr^2
 
 @jax.jit
@@ -87,15 +94,14 @@ def Plummer_hessian(x, y, z, params):
 # Phi = - G M / r * log(1 + r/Rs),  r = sqrt((rx/a)^2 + (ry/b)^2 + (rz/c)^2)
 @jax.jit
 def NFW_potential(x, y, z, params):
-    Rs = params['Rs']
-    ax = params['a']
-    by = params['b']
-    cz = params['c']
+    '''
+    params: dict with keys 'logM', 'Rs', 'a', 'b', 'c', 'x_origin', 'y_origin', 'z_origin', 'dirx', 'diry', 'dirz'
+    '''
     rin = _shift(x, y, z, params)
     rvec = _rotate(rin, params)  
     rx, ry, rz = rvec
-    r = jnp.sqrt((rx/ax)**2 + (ry/by)**2 + (rz/cz)**2 + EPSILON)
-    return -G * 10**params['logM'] * jnp.log(1 + r / Rs) / (r + EPSILON)  # kpc^2 / Gyr^2
+    r = jnp.sqrt((rx/params['a'])**2 + (ry/params['b'])**2 + (rz/params['c'])**2 + EPSILON)
+    return -G * 10**params['logM'] * jnp.log(1 + r / params['Rs']) / (r + EPSILON)  # kpc^2 / Gyr^2
 
 @jax.jit
 def NFW_acceleration(x, y, z, params):
@@ -110,3 +116,88 @@ def NFW_hessian(x, y, z, params):
         return NFW_potential(pos[0], pos[1], pos[2], params)
     hess_phi = jax.hessian(potential_vec)(jnp.array([x, y, z]))
     return hess_phi
+
+# ---------- Miyamoto-Nagai Disk ----------
+# Phi = - G M / sqrt(R^2 + (Rs + sqrt(z^2 + Hs^2))^2)
+@jax.jit
+def MiyamotoNagai_potential(x, y, z, params):
+    '''
+    params: dict with keys 'logM', 'Rs', 'Hs', 'x_origin', 'y_origin', 'z_origin', 'dirx', 'diry', 'dirz'
+    '''
+    rin  = _shift(x, y, z, params)
+    rvec = _rotate(rin, params)  
+    x, y, z = rvec
+
+    R = (x**2 + y**2)**0.5
+
+    denom2 = (R**2 + (params['Rs'] + (z**2 + params['Hs']**2)**0.5)**2)
+
+    Phi = - G * 10**params['logM'] / (denom2**0.5)
+
+    return Phi
+
+@jax.jit
+def MiyamotoNagai_acceleration(x, y, z, params):
+    def potential_vec(pos):
+        return MiyamotoNagai_potential(pos[0], pos[1], pos[2], params)
+    grad_phi = jax.grad(potential_vec)(jnp.array([x, y, z]))
+    return -grad_phi
+
+@jax.jit
+def MiyamotoNagai_hessian(x, y, z, params):
+    def potential_vec(pos):
+        return MiyamotoNagai_potential(pos[0], pos[1], pos[2], params)
+    hess_phi = jax.hessian(potential_vec)(jnp.array([x, y, z]))
+    return hess_phi
+
+# ---------- Quadratic Bar ----------
+# Phi = A * Rs^3 * (R^2 / (Rs + R)^5) * cos(2*phi_bar) * exp(-|z|/Hs)
+# where phi_bar = phi - Omega*(t - t0)
+# and phi = arctan(y/x)
+# and eps = 2*(t-t0)/(t1-t0) - 1
+# and val = 0 if t<t0, 1 if t>t1, and 3/16*eps^5 - 5/8*eps^3 + 15/16*eps + 1/2 if t0<=t<=t1
+@jax.jit
+def Bar_potential(x, y, z, t, params):
+    '''
+    params: dict with keys 'A', 'Rs', 'Hs', 'Omega', 't0', 't1', 'x_origin', 'y_origin', 'z_origin', 'dirx', 'diry', 'dirz'
+    '''
+    rin  = _shift(x, y, z, params)
+    rvec = _rotate(rin, params)  
+    x, y, z = rvec
+
+    R   = jnp.sqrt(x**2 + y**2)
+    phi = jnp.arctan2(y, x)
+    phi_bar = phi - params['Omega'] * (t - params['t0'])
+
+    eps = 2*(t-params['t0'])/(params['t1']-params['t0']) - 1
+
+    val = jax.lax.cond(
+        t < params['t0'],
+        lambda _: 0,
+        lambda _: jax.lax.cond(
+            t > params['t1'],
+            lambda _: 1,
+            lambda _: 3/16*eps**5 - 5/8*eps**3 + 15/16*eps + 1/2,
+            operand=None
+        ),
+        operand=None
+    )
+
+    amp = params['A'] * params['Rs']**3 * (R**2 / (params['Rs'] + R)**5) * val
+
+    return amp * jnp.cos(2*phi_bar) * (jnp.exp(-jnp.abs(z)/params['Hs']))  # kpc^2 / Gyr^2
+
+@jax.jit
+def Bar_acceleration(x, y, z, t, params):
+    def potential_vec(pos):
+        return Bar_potential(pos[0], pos[1], pos[2], t, params)
+    grad_phi = jax.grad(potential_vec)(jnp.array([x, y, z]))
+    return -grad_phi
+
+@jax.jit
+def Bar_hessian(x, y, z, t, params):
+    def potential_vec(pos):
+        return Bar_potential(pos[0], pos[1], pos[2], t, params)
+    hess_phi = jax.hessian(potential_vec)(jnp.array([x, y, z]))
+    return hess_phi
+
