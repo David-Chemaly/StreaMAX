@@ -126,11 +126,11 @@ def MiyamotoNagai_potential(x, y, z, params):
     '''
     rin  = _shift(x, y, z, params)
     rvec = _rotate(rin, params)  
-    x, y, z = rvec
+    rx, ry, rz = rvec + EPSILON
 
-    R = (x**2 + y**2)**0.5
+    R = (rx**2 + ry**2)**0.5
 
-    denom2 = (R**2 + (params['Rs'] + (z**2 + params['Hs']**2)**0.5)**2)
+    denom2 = (R**2 + (params['Rs'] + (rz**2 + params['Hs']**2)**0.5)**2)
 
     Phi = - G * 10**params['logM'] / (denom2**0.5)
 
@@ -162,22 +162,22 @@ def Bar_potential(x, y, z, t, params):
     params: dict with keys 'A', 'Rs', 'Hs', 'Omega', 't0', 't1', 'x_origin', 'y_origin', 'z_origin', 'dirx', 'diry', 'dirz'
     '''
     rin  = _shift(x, y, z, params)
-    rvec = _rotate(rin, params)  
-    x, y, z = rvec
+    rvec = _rotate(rin, params)
+    rx, ry, rz = rvec + EPSILON
 
-    R   = jnp.sqrt(x**2 + y**2)
-    phi = jnp.arctan2(y, x)
+    R   = jnp.sqrt(rx**2 + ry**2)
+    phi = jnp.arctan2(ry, rx)
+
     phi_bar = phi - params['Omega'] * (t - params['t0'])
 
-    eps = 2*(t-params['t0'])/(params['t1']-params['t0']) - 1
-
+    eps = 2.0*(t - params['t0'])/(params['t1'] - params['t0']) - 1.0
     val = jax.lax.cond(
         t < params['t0'],
-        lambda _: 0,
+        lambda _: 0.0,
         lambda _: jax.lax.cond(
             t > params['t1'],
-            lambda _: 1,
-            lambda _: 3/16*eps**5 - 5/8*eps**3 + 15/16*eps + 1/2,
+            lambda _: 1.0,
+            lambda _: (3.0/16.0)*eps**5 - (5.0/8.0)*eps**3 + (15.0/16.0)*eps + 0.5,
             operand=None
         ),
         operand=None
@@ -185,7 +185,7 @@ def Bar_potential(x, y, z, t, params):
 
     amp = params['A'] * params['Rs']**3 * (R**2 / (params['Rs'] + R)**5) * val
 
-    return amp * jnp.cos(2*phi_bar) * (jnp.exp(-jnp.abs(z)/params['Hs']))  # kpc^2 / Gyr^2
+    return amp * jnp.cos(2*phi_bar) * (jnp.exp(-(rz/params['Hs'])**2))  # kpc^2 / Gyr^2
 
 @jax.jit
 def Bar_acceleration(x, y, z, t, params):
