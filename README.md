@@ -1,4 +1,6 @@
-# StreaMAX — A JAX-Accelerated Stellar Stream Generator
+![Banner](./im.png)
+
+# A JAX-Accelerated Stellar Stream Generator
 
 StreaMAX is a lightweight, high-performance simulator for stellar streams built with JAX.  
 It’s designed to make modeling and inference on stellar streams fast enough for Bayesian analysis and modern data-intensive workflows.
