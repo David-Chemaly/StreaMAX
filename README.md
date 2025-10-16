@@ -1,4 +1,5 @@
 ![Banner](./im.png)
+<p align="center"><sub>Image credit: Sarah G. Kane</sub></p>
 
 # A JAX-Accelerated Stellar Stream Generator
 
