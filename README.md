@@ -1,5 +1,5 @@
 ![Banner](./im.png)
-<p align="center"><sub>Image credit: Sarah G. Kane</sub></p>
+*Image credit: [Sarah Kane](https://www.ast.cam.ac.uk/people/sarah.kane)*
 
 # A JAX-Accelerated Stellar Stream Generator
 
