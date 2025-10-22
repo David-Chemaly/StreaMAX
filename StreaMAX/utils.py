@@ -111,7 +111,7 @@ def create_ic_particle_spray(orbit_sat, rj, vj, R, n_particles, n_steps, tail=0,
     return ic_stream  # Shape: (N_particule, 6)
 
 @partial(jax.jit, static_argnames=('n_theta',))
-def get_track_2D(x_stream, y_stream, xhi_stream, n_theta=36):
+def get_track_2D(x_stream, y_stream, xhi_stream, n_theta=36, tmin=jnp.nan, tmax=jnp.nan):
     theta_stream = jnp.arctan2(y_stream, x_stream)
     r_stream     = jnp.sqrt(x_stream**2 + y_stream**2)
 
@@ -124,10 +124,16 @@ def get_track_2D(x_stream, y_stream, xhi_stream, n_theta=36):
     sat_bin = jnp.argmin(jnp.abs(xhi_ordered))
     theta_ordered = theta_ordered - theta_ordered[sat_bin]
 
-    # bins (pad range so edge values are included)
-    tmin = jnp.min(theta_ordered) - EPSILON
-    tmax = jnp.max(theta_ordered) + EPSILON
-    theta_bins = jnp.linspace(tmin, tmax, n_theta + 1)
+    # bins (pad range so edge values are included) — JAX-friendly
+    theta_min = jax.lax.cond(jnp.isnan(tmin),
+                        lambda _: jnp.min(theta_ordered) - EPSILON,
+                        lambda v: v,
+                        operand=tmin)
+    theta_max = jax.lax.cond(jnp.isnan(tmax),
+                        lambda _: jnp.max(theta_ordered) + EPSILON,
+                        lambda v: v,
+                        operand=tmax)
+    theta_bins = jnp.linspace(theta_min, theta_max, n_theta + 1)
 
     # correct bin centers
     widths = jnp.diff(theta_bins)
