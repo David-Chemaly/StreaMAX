@@ -110,64 +110,42 @@ def create_ic_particle_spray(orbit_sat, rj, vj, R, n_particles, n_steps, tail=0,
 
     return ic_stream  # Shape: (N_particule, 6)
 
-@partial(jax.jit, static_argnames=('n_theta',))
-def get_track_2D(x_stream, y_stream, xhi_stream, n_theta=36, tmin=jnp.nan, tmax=jnp.nan):
+@jax.jit
+def get_stream_ordered(x_stream, y_stream, xhi_stream):
     theta_stream = jnp.arctan2(y_stream, x_stream)
     r_stream     = jnp.sqrt(x_stream**2 + y_stream**2)
 
     arg_sort       = jnp.argsort(xhi_stream)
     theta_ordered  = jnp.unwrap(theta_stream[arg_sort])
     r_ordered      = r_stream[arg_sort]
+    x_ordered      = x_stream[arg_sort]
+    y_ordered      = y_stream[arg_sort]
     xhi_ordered    = xhi_stream[arg_sort]
 
     # zero theta at satellite (min |xhi|)
     sat_bin = jnp.argmin(jnp.abs(xhi_ordered))
     theta_ordered = theta_ordered - theta_ordered[sat_bin]
 
-    # bins (pad range so edge values are included) — JAX-friendly
-    theta_min = jax.lax.cond(jnp.isnan(tmin),
-                        lambda _: jnp.min(theta_ordered) - EPSILON,
-                        lambda v: v,
-                        operand=tmin)
-    theta_max = jax.lax.cond(jnp.isnan(tmax),
-                        lambda _: jnp.max(theta_ordered) + EPSILON,
-                        lambda v: v,
-                        operand=tmax)
-    theta_bins = jnp.linspace(theta_min, theta_max, n_theta + 1)
+    return x_ordered, y_ordered, theta_ordered, r_ordered, xhi_ordered
 
-    # correct bin centers
-    widths = jnp.diff(theta_bins)
-    theta_bin_centers = theta_bins[:-1] + 0.5 * widths
+@jax.jit
+def get_track_2D(theta_ordered, r_ordered, theta_center, theta_width):
+    theta_min = theta_center - theta_width / 2
+    theta_max = theta_center + theta_width / 2
 
-    # digitize; clip to [1, n_theta]
-    bin_indices = jnp.digitize(theta_ordered, theta_bins, right=False)
-    bin_indices = jnp.clip(bin_indices, 1, n_theta)
+    mask = (theta_ordered >= theta_min) & (theta_ordered < theta_max)
 
-    def bin_stats(bin_idx, bin_ids):
-        mask = (bin_ids == bin_idx)
+    r_in_bin   = jnp.where(mask, r_ordered, jnp.nan)
+    count  = jnp.sum(mask)
 
-        # Masked arrays (NaN where not in bin)
-        r_in_bin   = jnp.where(mask, r_ordered, jnp.nan)
-        xhi_in_bin = jnp.where(mask, xhi_ordered, jnp.nan)
+    # robust median & scatter via quantiles (handles NaNs)
+    r_med  = jnp.nanquantile(r_in_bin, 0.5)
+    q16    = jnp.nanquantile(r_in_bin, 0.16)
+    q84    = jnp.nanquantile(r_in_bin, 0.84)
+    sig    = 0.5 * (q84 - q16)
 
-        count  = jnp.sum(mask)
+    # If bin is empty, return NaNs / 0 count
+    r_med  = jnp.where(count > 0, r_med, jnp.nan)
+    sig    = jnp.where(count > 0, sig, jnp.nan)
 
-        # robust median & scatter via quantiles (handles NaNs)
-        r_med  = jnp.nanquantile(r_in_bin, 0.5)
-        q16    = jnp.nanquantile(r_in_bin, 0.16)
-        q84    = jnp.nanquantile(r_in_bin, 0.84)
-        sig    = 0.5 * (q84 - q16)
-
-        xhi_med = jnp.nanquantile(xhi_in_bin, 0.5)
-
-        # If bin is empty, return NaNs / 0 count
-        r_med  = jnp.where(count > 0, r_med, jnp.nan)
-        sig    = jnp.where(count > 0, sig, jnp.nan)
-        xhi_med= jnp.where(count > 0, xhi_med, jnp.nan)
-
-        return r_med, sig, count, xhi_med
-
-    all_bins = jnp.arange(1, n_theta + 1)
-    r_medians, sigs, counts, xhis = jax.vmap(bin_stats, in_axes=(0, None))(all_bins, bin_indices)
-
-    return theta_ordered, r_ordered, xhi_ordered, theta_bin_centers, r_medians, sigs, counts, xhis
+    return r_med, sig, count
