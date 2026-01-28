@@ -4,7 +4,7 @@ from functools import partial
 
 from .potentials import *
 from .utils import get_rj_vj_R, create_ic_particle_spray
-from .integrants import integrate_leapfrog_final, integrate_leapfrog_traj, combined_integrate_leapfrog_final
+from .integrants import integrate_leapfrog_final, integrate_leapfrog_traj, evolve_stream
 
 @partial(jax.jit, static_argnames=('type_host', 'type_sat', 'n_particles', 'n_steps', 'unroll'))
 def generate_stream(xv_f, 
@@ -59,17 +59,45 @@ def generate_stream(xv_f,
     ic_particle_spray = create_ic_particle_spray(xv_sat, rj, vj, R, 
                                                     n_particles=n_particles, n_steps=len(xv_sat), tail=tail, seed=seed)
 
-    # Integrate the particle spray
-    index = jnp.repeat(jnp.arange(0, n_steps+1, 1), n_particles // (n_steps+1))
-    xv_stream, xhi_stream = jax.vmap(combined_integrate_leapfrog_final, 
-                                    in_axes=(0, 0, None, None, None, None, None, None, None, None, None, None)) \
-                                    (index, ic_particle_spray, params_host, 
-                                    xv_sat, params_sat,
-                                    acc_host, acc_sat,
-                                    n_steps,
-                                    (time-t_sat)[:-1]*alpha/n_steps,
-                                    m_sat[:-1],
-                                    m_sat[:-1]/n_steps,
-                                    unroll)
+    # Prepare for evolve_stream
+    n_groups = n_steps + 1
+    n_per_group = n_particles // n_groups
+    
+    # Reshape particles: (n_groups, n_per_group, 6)
+    particles_reshaped = ic_particle_spray.reshape(n_groups, n_per_group, 6)
+    
+    # Reshape progenitor states: (n_groups, 6) -> (n_groups, n_per_group, 6)
+    prog_reshaped = jnp.repeat(xv_sat[:, None, :], n_per_group, axis=1)
+    
+    # Reshape progenitor mass: (n_groups,) -> (n_groups, n_per_group, 1)
+    mass_reshaped = jnp.repeat(m_sat[:, None], n_per_group, axis=1)[..., None]
+    
+    # Initial g: (n_groups, n_per_group, 1)
+    g_init = jnp.zeros((n_groups, n_per_group, 1))
+    
+    # Construct all_states: (n_groups, n_per_group, 14)
+    # r(3), v(3), rp(3), vp(3), g(1), m(1)
+    # particles_reshaped has r, v
+    # prog_reshaped has rp, vp
+    all_states = jnp.concatenate([particles_reshaped, prog_reshaped, g_init, mass_reshaped], axis=-1)
+    
+    # Steps per group: Group i (released at step i) needs n_steps - i steps
+    steps_per_group = jnp.arange(n_steps, -1, -1)
+    
+    # Constant dm (per step)
+    # Total mass change = params_sat['logM'] - m_f_sat
+    # Over n_steps steps
+    dm = (params_sat['logM'] - m_f_sat) / n_steps
+
+    final_states = evolve_stream(all_states, steps_per_group, dt*alpha, dm,
+                                 params_host, params_prog=params_sat,
+                                 acc_fn_host=acc_host, acc_fn_prog=acc_sat,
+                                 n_steps_total=n_steps, unroll=unroll)
+    
+    # Flatten results
+    final_states_flat = final_states.reshape(n_particles, 14)
+    
+    xv_stream = final_states_flat[:, :6]
+    xhi_stream = final_states_flat[:, 12]
 
     return t_sat, xv_sat, xv_stream, xhi_stream
