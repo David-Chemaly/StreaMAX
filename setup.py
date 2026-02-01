@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="streamax",  # name on PyPI / pip
-    version="0.2.0",
+    version="0.3.0",
     author="David",
     author_email="dc824@cam.ac.uk",
     description="A JAX-accelerated stream generator (StreaMAX)",

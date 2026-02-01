@@ -63,10 +63,9 @@ pip install -r requirements.txt
 ## 📚 Citation & License
 
 This project is released under the MIT License.  
-If you use StreaMAX in your research, please cite and reference the repository:
+If you use StreaMAX in your research, please cite and reference the following paper:
 
-Chemaly, D. et al. 2025 (in prep.). StreaMAX: A JAX-accelerated stellar stream generator.  
-GitHub repository: https://github.com/David-Chemaly/StreaMAX
+[Chemaly, D. et al. 2025, Hierarchical bayesian inference: constraining population distribution of dark matter halo shapes via stellar streams](https://ui.adsabs.harvard.edu/abs/2026arXiv260115373C/abstract)
 
 ---
 
