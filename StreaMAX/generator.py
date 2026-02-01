@@ -44,12 +44,15 @@ def generate_stream(xv_f,
     elif type_host == 'Hernquist':
         acc_host = Hernquist_acceleration
         hessian_host = Hernquist_hessian
-    elif type_host == 'Logarithmic_potential':
+    elif type_host == 'Logarithmic':
         acc_host = Logarithmic_acceleration
         hessian_host = Logarithmic_hessian
-    elif type_host == 'ExpDisk_potential':
+    elif type_host == 'ExpDisk':
         acc_host = ExpDisk_acceleration
         hessian_host = ExpDisk_hessian
+    elif type_host == 'DiskNFW':
+        acc_host = NFW_MiyamotoNagai_acceleration
+        hessian_host = NFW_MiyamotoNagai_hessian
     elif type_host == 'Composite':
         # TODO: implement composite potential selection
         raise NotImplementedError("Composite potential not yet implemented.")
