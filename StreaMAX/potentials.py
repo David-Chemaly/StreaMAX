@@ -201,3 +201,117 @@ def Bar_hessian(x, y, z, t, params):
     hess_phi = jax.hessian(potential_vec)(jnp.array([x, y, z]))
     return hess_phi
 
+# ---------- Hernquist ----------
+# Phi = - G M / (r + Rs)
+@jax.jit
+def Hernquist_potential(x, y, z, params):
+    '''
+    params: dict with keys 'logM', 'Rs', 'x_origin', 'y_origin', 'z_origin', 'dirx', 'diry', 'dirz'
+    '''
+    r = _shift(x, y, z, params)
+    s = jnp.sqrt(r @ r + EPSILON)
+    return -G * 10**params['logM'] / (s + params['Rs'])  # kpc^2 / Gyr^2
+
+@jax.jit
+def Hernquist_acceleration(x, y, z, params):
+    def potential_vec(pos):
+        return Hernquist_potential(pos[0], pos[1], pos[2], params)
+    grad_phi = jax.grad(potential_vec)(jnp.array([x, y, z]))
+    return -grad_phi
+
+@jax.jit
+def Hernquist_hessian(x, y, z, params):
+    def potential_vec(pos):
+        return Hernquist_potential(pos[0], pos[1], pos[2], params)
+    hess_phi = jax.hessian(potential_vec)(jnp.array([x, y, z]))
+    return hess_phi
+
+# ---------- Logarithmic ----------
+# Phi = 0.5 * V0^2 * log(Rc^2 + x^2 + (y^2)/q1^2 + (z^2)/q2^2)
+@jax.jit
+def Logarithmic_potential(x, y, z, params):
+    '''
+    params: dict with keys 'V0', 'Rc', 'q1', 'q2', 'x_origin', 'y_origin', 'z_origin', 'dirx', 'diry', 'dirz'
+    '''
+    rin  = _shift(x, y, z, params)
+    rvec = _rotate(rin, params)  
+    rx, ry, rz = rvec + EPSILON
+
+    denom = params['Rc']**2 + rx**2 + (ry**2)/(params['q1']**2) + (rz**2)/(params['q2']**2)
+
+    return 0.5 * params['V0']**2 * jnp.log(denom)  # kpc^2 / Gyr^2
+
+@jax.jit
+def Logarithmic_acceleration(x, y, z, params):
+    def potential_vec(pos):
+        return Logarithmic_potential(pos[0], pos[1], pos[2], params)
+    grad_phi = jax.grad(potential_vec)(jnp.array([x, y, z]))
+    return -grad_phi
+
+@jax.jit
+def Logarithmic_hessian(x, y, z, params):
+    def potential_vec(pos):
+        return Logarithmic_potential(pos[0], pos[1], pos[2], params)
+    hess_phi = jax.hessian(potential_vec)(jnp.array([x, y, z]))
+    return hess_phi
+
+# ---------- ExpDisk ----------
+# Phi = - 2 * pi * G * Sigma0 * Rs^2 * [I0(R/(2Rs)) * K1(R/(2Rs))] * exp(-|z|/Hs)
+# where I0 and K1 are modified Bessel functions
+@jax.jit
+def ExpDisk_potential(x, y, z, params):
+    '''
+    params: dict with keys 'logSigma0', 'Rs', 'Hs', 'x_origin', 'y_origin', 'z_origin', 'dirx', 'diry', 'dirz'
+    '''
+    rin  = _shift(x, y, z, params)
+    rvec = _rotate(rin, params)  
+    rx, ry, rz = rvec + EPSILON
+
+    R = jnp.sqrt(rx**2 + ry**2)
+
+    from jax.scipy.special import i0, k1
+
+    bess = i0(R / (2 * params['Rs'])) * k1(R / (2 * params['Rs']))
+
+    amp = -2 * jnp.pi * G * 10**params['logSigma0'] * params['Rs']**2 * bess
+
+    return amp * jnp.exp(-(rz / params['Hs'])**2)  # kpc^2 / Gyr^2
+
+@jax.jit
+def ExpDisk_acceleration(x, y, z, params):
+    def potential_vec(pos):
+        return ExpDisk_potential(pos[0], pos[1], pos[2], params)
+    grad_phi = jax.grad(potential_vec)(jnp.array([x, y, z]))
+    return -grad_phi
+
+@jax.jit
+def ExpDisk_hessian(x, y, z, params):
+    def potential_vec(pos):
+        return ExpDisk_potential(pos[0], pos[1], pos[2], params)
+    hess_phi = jax.hessian(potential_vec)(jnp.array([x, y, z]))
+    return hess_phi
+
+# ---------- NFW + MiyamotoNagai ----------
+# Composite potential: Phi = Phi_NFW + Phi_MiyamotoNagai
+@jax.jit
+def NFW_MiyamotoNagai_potential(x, y, z, params):
+    '''
+    params: dict with keys 'NFW_params' and 'MN_params', each being a dict of parameters for the respective potentials
+    '''
+    phi_nfw = NFW_potential(x, y, z, params['NFW_params'])
+    phi_mn  = MiyamotoNagai_potential(x, y, z, params['MN_params'])
+    return phi_nfw + phi_mn
+
+@jax.jit
+def NFW_MiyamotoNagai_acceleration(x, y, z, params):
+    def potential_vec(pos):
+        return NFW_MiyamotoNagai_potential(pos[0], pos[1], pos[2], params)
+    grad_phi = jax.grad(potential_vec)(jnp.array([x, y, z]))
+    return -grad_phi
+
+@jax.jit
+def NFW_MiyamotoNagai_hessian(x, y, z, params):
+    def potential_vec(pos):
+        return NFW_MiyamotoNagai_potential(pos[0], pos[1], pos[2], params)
+    hess_phi = jax.hessian(potential_vec)(jnp.array([x, y, z]))
+    return hess_phi
