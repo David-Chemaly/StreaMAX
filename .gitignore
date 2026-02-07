@@ -1,3 +1,6 @@
+# --- ignore SFTP files for remote sync ---
+sftp-config.json
+
 # --- Python build ---
 __pycache__/
 *.py[cod]

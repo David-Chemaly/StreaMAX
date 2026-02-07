@@ -10,3 +10,4 @@ KMS_TO_KPCGYR = GYR_TO_S / KPC_TO_KM
 KPCGYR_TO_KMS = KPC_TO_KM / GYR_TO_S
 EPSILON       = 1e-12  # Small constant to avoid division by zero
 TWOPI         = 2 * jnp.pi
+DEG_TO_RAD    = (1 * auni.deg).to(auni.rad).value
