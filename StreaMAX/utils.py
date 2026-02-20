@@ -35,15 +35,41 @@ def get_mat(x, y, z):
     rot_mat = I3 + sin_angle * K + (1 - cos_angle) * jnp.dot(K, K)
     return rot_mat
 
+def prepare_params(params):
+    """Precompute R_mat and M into a params dict to avoid recomputation inside integration loops.
+
+    Call this once before passing params to generate_stream (or any integrator) to ensure
+    the rotation matrix and linear mass are computed once rather than at every potential evaluation.
+    """
+    out = dict(params)
+    if 'dirx' in params:
+        out['R_mat'] = get_mat(params['dirx'], params['diry'], params['dirz'])
+    if 'logM' in params:
+        out['M'] = 10.**params['logM']
+    if 'logSigma0' in params:
+        out['Sigma0'] = 10.**params['logSigma0']
+    for key in ('NFW_params', 'MN_params'):
+        if key in params:
+            out[key] = prepare_params(params[key])
+    return out
+
+
 @jax.jit
-def get_rj_vj_R(hessians, orbit_sat, log_mass_sat):
+def get_rj_vj_R(d2phi_dr2, orbit_sat, log_mass_sat):
+    """Compute Jacobi radius, velocity offset, and rotation matrix along an orbit.
+
+    Args:
+        d2phi_dr2  : (N,) array of r^T ∇²Φ r / r² at each orbit point (radial Hessian component)
+        orbit_sat  : (N, 6) phase-space orbit
+        log_mass_sat: (N,) log10 satellite mass along the orbit
+    """
     x, y, z, vx, vy, vz = orbit_sat.T
 
     # Compute angular momentum L
     Lx = y * vz - z * vy
     Ly = z * vx - x * vz
     Lz = x * vy - y * vx
-    r = jnp.sqrt(x**2 + y**2 + z**2)  # Regularization to prevent NaN
+    r = jnp.sqrt(x**2 + y**2 + z**2)
     L = jnp.sqrt(Lx**2 + Ly**2 + Lz**2)
 
     # Rotation matrix (transform from host to satellite frame)
@@ -57,15 +83,9 @@ def get_rj_vj_R(hessians, orbit_sat, log_mass_sat):
         jnp.stack([Lx / L, Ly / L, Lz / L], axis=-1),
     ], axis=-2)  # Shape: (N, 3, 3)
 
-    # Compute second derivative of potential
-    d2Phi_dr2 = (
-        x**2 * hessians[:, 0, 0] + y**2 * hessians[:, 1, 1] + z**2 * hessians[:, 2, 2] +
-        2 * x * y * hessians[:, 0, 1] + 2 * y * z * hessians[:, 1, 2] + 2 * z * x * hessians[:, 0, 2]
-    ) / r**2 # 1 / Gyr²
-
     # Compute Jacobi radius and velocity offset
     Omega = L / r**2  # 1 / Gyr
-    rj = ((10**log_mass_sat * G / (Omega**2 - d2Phi_dr2))) ** (1. / 3)  # kpc
+    rj = ((10**log_mass_sat * G / (Omega**2 - d2phi_dr2))) ** (1. / 3)  # kpc
     vj = Omega * rj
 
     return rj, vj, R

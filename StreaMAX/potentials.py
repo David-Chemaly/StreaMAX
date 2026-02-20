@@ -12,7 +12,7 @@ def _shift(x, y, z, p):
 
 @jax.jit
 def _rotate(vec, p):
-    R = get_mat(p['dirx'], p['diry'], p['dirz'])
+    R = p['R_mat'] if 'R_mat' in p else get_mat(p['dirx'], p['diry'], p['dirz'])
     return R @ vec  # matvec
 
 # ---------- Point Mass ----------
@@ -24,7 +24,8 @@ def PointMass_potential(x, y, z, params):
     '''
     r  = _shift(x, y, z, params)
     s  = jnp.sqrt(r @ r + EPSILON)
-    return -G * 10**params['logM'] / s # kpc^2 / Gyr^2
+    M  = params['M'] if 'M' in params else 10.**params['logM']
+    return -G * M / s # kpc^2 / Gyr^2
 
 @jax.jit
 def PointMass_acceleration(x, y, z, params):
@@ -49,7 +50,8 @@ def Isochrone_potential(x, y, z, params):
     '''
     r = _shift(x, y, z, params)
     s  = jnp.sqrt(r @ r + params['Rs']*params['Rs'] + EPSILON)
-    return -G * 10**params['logM'] / (params['Rs'] + s)  # kpc^2 / Gyr^2
+    M  = params['M'] if 'M' in params else 10.**params['logM']
+    return -G * M / (params['Rs'] + s)  # kpc^2 / Gyr^2
 
 @jax.jit
 def Isochrone_acceleration(x, y, z, params):
@@ -74,7 +76,8 @@ def Plummer_potential(x, y, z, params):
     '''
     r = _shift(x, y, z, params)
     s = jnp.sqrt(r @ r + params['Rs']*params['Rs'] + EPSILON)
-    return -G * 10**params['logM'] / s  # kpc^2 / Gyr^2
+    M = params['M'] if 'M' in params else 10.**params['logM']
+    return -G * M / s  # kpc^2 / Gyr^2
 
 @jax.jit
 def Plummer_acceleration(x, y, z, params):
@@ -101,7 +104,8 @@ def NFW_potential(x, y, z, params):
     rvec = _rotate(rin, params)  
     rx, ry, rz = rvec
     r = jnp.sqrt((rx/params['a'])**2 + (ry/params['b'])**2 + (rz/params['c'])**2 + EPSILON)
-    return -G * 10**params['logM'] * jnp.log(1 + r / params['Rs']) / (r + EPSILON)  # kpc^2 / Gyr^2
+    M = params['M'] if 'M' in params else 10.**params['logM']
+    return -G * M * jnp.log(1 + r / params['Rs']) / (r + EPSILON)  # kpc^2 / Gyr^2
 
 @jax.jit
 def NFW_acceleration(x, y, z, params):
@@ -132,7 +136,8 @@ def MiyamotoNagai_potential(x, y, z, params):
 
     denom2 = (R**2 + (params['Rs'] + (rz**2 + params['Hs']**2)**0.5)**2)
 
-    Phi = - G * 10**params['logM'] / (denom2**0.5)
+    M   = params['M'] if 'M' in params else 10.**params['logM']
+    Phi = - G * M / (denom2**0.5)
 
     return Phi
 
@@ -210,7 +215,8 @@ def Hernquist_potential(x, y, z, params):
     '''
     r = _shift(x, y, z, params)
     s = jnp.sqrt(r @ r + EPSILON)
-    return -G * 10**params['logM'] / (s + params['Rs'])  # kpc^2 / Gyr^2
+    M = params['M'] if 'M' in params else 10.**params['logM']
+    return -G * M / (s + params['Rs'])  # kpc^2 / Gyr^2
 
 @jax.jit
 def Hernquist_acceleration(x, y, z, params):
@@ -273,7 +279,8 @@ def ExpDisk_potential(x, y, z, params):
 
     bess = i0(R / (2 * params['Rs'])) * k1(R / (2 * params['Rs']))
 
-    amp = -2 * jnp.pi * G * 10**params['logSigma0'] * params['Rs']**2 * bess
+    Sigma0 = params['Sigma0'] if 'Sigma0' in params else 10.**params['logSigma0']
+    amp = -2 * jnp.pi * G * Sigma0 * params['Rs']**2 * bess
 
     return amp * jnp.exp(-(rz / params['Hs'])**2)  # kpc^2 / Gyr^2
 
