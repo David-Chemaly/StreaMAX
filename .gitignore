@@ -36,3 +36,4 @@ venv/
 
 # --- Local config ---
 *.local
+sftp-config.json

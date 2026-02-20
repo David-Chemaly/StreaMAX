@@ -4,7 +4,7 @@ from functools import partial
 
 from .potentials import *
 from .utils import get_rj_vj_R, prepare_params
-from .methods import create_ic_particle_spray_Fardal2015
+from .methods import create_ic_particle_spray_Fardal2015, create_ic_particle_spray_Chen2025
 from .integrants import integrate_leapfrog_final, integrate_leapfrog_traj, combined_integrate_leapfrog_final, precompute_prog_trajectories
 
 @partial(jax.jit, static_argnames=('type_host', 'type_sat', 'n_particles', 'n_steps', 'unroll', 
@@ -94,6 +94,13 @@ def generate_stream(xv_f,
 
         # Get the particle spray initial conditions
         ic_particle_spray = create_ic_particle_spray_Fardal2015(xv_sat, rj, vj, R,
+                                                    n_particles=n_particles, n_steps=len(xv_sat), tail=tail, seed=seed)
+    elif type_method == 'Chen2025':
+        # Get the Jacobi radius and velocity matrices along the orbit
+        rj, vj, R = get_rj_vj_R(d2phi_dr2, xv_sat, m_sat)
+
+        # Get the particle spray initial conditions
+        ic_particle_spray = create_ic_particle_spray_Chen2025(xv_sat, rj, vj, R, m_sat,
                                                     n_particles=n_particles, n_steps=len(xv_sat), tail=tail, seed=seed)
     else:
         raise NotImplementedError(f"Method {type_method} not implemented.")
